@@ -1,0 +1,80 @@
+{"query":"Contacto lead [REDACTED] telefono [REDACTED]","expected_id":"m_1771905109466_e2889736","context":"burnin-threshold55"}
+{"query":"Contacto del cliente [REDACTED] con telefono [REDACTED] y api key [REDACTED]","expected_id":"m_1771904974927_640739b5","context":"burnin-phase2"}
+{"query":"Contacto cliente: [REDACTED], [REDACTED], api_key=[REDACTED]","expected_id":"m_1771904964330_4612ddb5","context":"burnin-phase2"}
+{"query":"Browser tool no disponible en OpenClaw servidor. Chrome está instalado en ~/.cache/ms-playwright/chromium-1208/ pero Ope","expected_id":"m_1771698161283_88384827","context":null}
+{"query":"BUG CRÍTICO ARREGLADO: OpenClaw estaba haciendo fallback silencioso a Claude (claude-opus-4-6) cuando Gemini fallaba. TO","expected_id":"m_1771690477565_40118f25","context":null}
+{"query":"Fix aplicado para bug 'tool id not found' en grupos de Telegram. Se agregó 'tools: { allow: [\"*\"] }' a la configuración ","expected_id":"m_1771689948572_2694571d","context":null}
+{"query":"SIEMPRE revisar /home/clawd/.env al inicio de cada sesión. Ahí están las APIs disponibles: NOTION_API_KEY, MINIMAX_API_K","expected_id":"m_1771681156913_6e34b5e0","context":null}
+{"query":"BrainX V3 está funcionando correctamente","expected_id":"m_1771653903753_a9cc8509","context":null}
+{"query":"SKILLS DISPONIBLES SIEMPRE: 1) Notion API (~/.config/notion/api_key), 2) Gmail/Google Workspace (.openclaw/skills/google","expected_id":"m_1771619404688_5401a3dc","context":"tools"}
+{"query":"TENGO RAILWAY CLI. Comandos: railway status, railway deploy, railway logs, railway variables. Proyecto vinculado en /hom","expected_id":"m_1771619385186_0129521d","context":"tools"}
+{"query":"TENGO GITHUB CLI (gh). Comandos: gh auth status, gh repo list, gh pr list, gh issue list, gh repo view <repo>. gh está i","expected_id":"m_1771619382676_1efc9883","context":"tools"}
+{"query":"TENGO ACCESO A SLACK via slk CLI. Comandos: slk channels (listar), slk read <channel> [count] (leer), slk unread (no leí","expected_id":"m_1771619381142_8e44cbd3","context":"tools"}
+{"query":"TENGO PLAYWRIGHT BROWSER AUTOMATION. Skill en .openclaw/skills/playwright-browser-automation/. Uso: const { chromium } =","expected_id":"m_1771619378090_cf5b369d","context":"tools"}
+{"query":"TENGO ACCESO A GMAIL Y GOOGLE WORKSPACE. CLI en .openclaw/skills/google-workspace/cli.js. Comandos: node cli.js gmail li","expected_id":"m_1771619375323_e4dc72a7","context":"tools"}
+{"query":"USO DE NOTION API: NOTION_KEY=$(cat ~/.config/notion/api_key). Buscar: curl -X POST https://api.notion.com/v1/search -H ","expected_id":"m_1771618807257_422d7e94","context":"tools"}
+{"query":"TENGO ACCESO A NOTION SIEMPRE. API Key en ~/.config/notion/api_key. Páginas clave: Emailbot (1d0c86db-61c1-80cc-ab1f-d12","expected_id":"m_1771618790055_f0fff51d","context":"tools"}
+{"query":"# MEMORY.md - Memoria a Largo Plazo de Jarvis","expected_id":"m_1771456924231_447efaed","context":"clawma"}
+{"query":"# Session 2026-02-18 - Support Agent ## Decisions - Launched multiple parallel sub-agents for BrainX diagnostics - Recov","expected_id":"m_1771456647845_88be8cda","context":"workspace-support/memory/2026-02-18.md"}
+{"query":"# MEMORY.md - Memoria a Largo Plazo de Jarvis ## 📋 Índice (~100 tokens) | ID | Tipo | Categoría | Resumen | ~Tok | |---","expected_id":"m_1771456637311_bd46f92c","context":"workspace-support/MEMORY.md"}
+{"query":"# MEMORY.md - Memoria a Largo Plazo de Jarvis ## 📋 Índice (~100 tokens) | ID | Tipo | Categoría | Resumen | ~Tok | |---","expected_id":"m_1771456626971_d8ae8ca3","context":"workspace-writer/MEMORY.md"}
+{"query":"# Session 2026-02-18 - Support Agent ## Decisions - Launched multiple parallel sub-agents for BrainX diagnostics - Recov","expected_id":"m_1771456616522_bedffacd","context":"workspace-support/memory/2026-02-18.md"}
+{"query":"# MEMORY.md - Memoria a Largo Plazo de Jarvis ## 📋 Índice (~100 tokens) | ID | Tipo | Categoría | Resumen | ~Tok | |---","expected_id":"m_1771456606126_bbf0d97b","context":"workspace-support/MEMORY.md"}
+{"query":"# MEMORY.md - Memoria a Largo Plazo de Jarvis ## 📋 Índice (~100 tokens) | ID | Tipo | Categoría | Resumen | ~Tok | |---","expected_id":"m_1771456595680_c6dbf94b","context":"workspace-researcher/MEMORY.md"}
+{"query":"# Memoria del Agente Reasoning ## Inicio Agente de reasoning inicializado el 2026-02-18. ## Notas - Workspace de memoria","expected_id":"m_1771456585258_7d21e2f8","context":"workspace-reasoning/memory/2026-02-18.md"}
+{"query":"# MEMORY.md - Memoria a Largo Plazo de Jarvis ## 📋 Índice (~100 tokens) | ID | Tipo | Categoría | Resumen | ~Tok | |---","expected_id":"m_1771456574915_e67c753a","context":"workspace-reasoning/MEMORY.md"}
+{"query":"# MEMORY.md - Memoria a Largo Plazo de Jarvis ## 📋 Índice (~100 tokens) | ID | Tipo | Categoría | Resumen | ~Tok | |---","expected_id":"m_1771456564523_b691feeb","context":"workspace-heartbeat/MEMORY.md"}
+{"query":"# Session Log — 2026-02-18 ## Decisions - **ThreadHistory redesign**: Recreated the ThreadHistory component with full th","expected_id":"m_1771456553954_3315ab06","context":"workspace-coder/memory/2026-02-18.md"}
+{"query":"# MEMORY.md - Memoria a Largo Plazo de Jarvis ## 📋 Índice (~100 tokens) | ID | Tipo | Categoría | Resumen | ~Tok | |---","expected_id":"m_1771456543057_b5e0f059","context":"workspace-coder/MEMORY.md"}
+{"query":"# MEMORY.md - Memoria a Largo Plazo de Jarvis ## 📋 Índice (~100 tokens) | ID | Tipo | Categoría | Resumen | ~Tok | |---","expected_id":"m_1771456532603_67acacd6","context":"workspace-clawma/MEMORY.md"}
+{"query":"# Session 2026-02-18 - Support Agent ## Decisions - Launched multiple parallel sub-agents for BrainX diagnostics - Recov","expected_id":"m_1771456443985_68150887","context":"workspace-support/memory/2026-02-18.md"}
+{"query":"# MEMORY.md - Memoria a Largo Plazo de Jarvis ## 📋 Índice (~100 tokens) | ID | Tipo | Categoría | Resumen | ~Tok | |---","expected_id":"m_1771456433607_d6a65d4f","context":"workspace-support/MEMORY.md"}
+{"query":"# MEMORY.md - Memoria a Largo Plazo de Jarvis ## 📋 Índice (~100 tokens) | ID | Tipo | Categoría | Resumen | ~Tok | |---","expected_id":"m_1771456423000_64ed6355","context":"workspace-researcher/MEMORY.md"}
+{"query":"# Memoria del Agente Reasoning ## Inicio Agente de reasoning inicializado el 2026-02-18. ## Notas - Workspace de memoria","expected_id":"m_1771456412462_1661adb3","context":"workspace-reasoning/memory/2026-02-18.md"}
+{"query":"# MEMORY.md - Memoria a Largo Plazo de Jarvis ## 📋 Índice (~100 tokens) | ID | Tipo | Categoría | Resumen | ~Tok | |---","expected_id":"m_1771456402054_0e83e226","context":"workspace-reasoning/MEMORY.md"}
+{"query":"# MEMORY.md - Memoria a Largo Plazo de Jarvis ## 📋 Índice (~100 tokens) | ID | Tipo | Categoría | Resumen | ~Tok | |---","expected_id":"m_1771456391351_4fb01519","context":"workspace-heartbeat/MEMORY.md"}
+{"query":"# Session Log — 2026-02-18 ## Decisions - **ThreadHistory redesign**: Recreated the ThreadHistory component with full th","expected_id":"m_1771456380873_a499ad6f","context":"workspace-coder/memory/2026-02-18.md"}
+{"query":"# MEMORY.md - Memoria a Largo Plazo de Jarvis ## 📋 Índice (~100 tokens) | ID | Tipo | Categoría | Resumen | ~Tok | |---","expected_id":"m_1771456370399_65500e77","context":"workspace-coder/MEMORY.md"}
+{"query":"# MEMORY.md - Memoria a Largo Plazo de Jarvis ## 📋 Índice (~100 tokens) | ID | Tipo | Categoría | Resumen | ~Tok | |---","expected_id":"m_1771456359766_275442ed","context":"workspace-clawma/MEMORY.md"}
+{"query":"# MEMORY.md - Memoria a Largo Plazo de Jarvis","expected_id":"m_1771456317450_69ea251b","context":"clawma"}
+{"query":"Test de sincronización","expected_id":"m_1771456278985_df733575","context":"test"}
+{"query":"test audit reasoning Wed Feb 18 20:36:21 UTC 2026","expected_id":"m_1771446981981_82201e58","context":null}
+{"query":"test audit clawma Wed Feb 18 20:36:13 UTC 2026","expected_id":"m_1771446973081_99a6936f","context":null}
+{"query":"test audit gateway Wed Feb 18 20:36:12 UTC 2026","expected_id":"m_1771446972238_d91ce961","context":null}
+{"query":"test audit heartbeat Wed Feb 18 20:36:09 UTC 2026","expected_id":"m_1771446969361_63b94a37","context":null}
+{"query":"test audit researcher Wed Feb 18 20:34:31 UTC 2026","expected_id":"m_1771446871822_015fbed6","context":null}
+{"query":"test audit coder Wed Feb 18 20:33:31 UTC 2026","expected_id":"m_1771446811345_41116b83","context":null}
+{"query":"test audit writer Wed Feb 18 20:33:27 UTC 2026","expected_id":"m_1771446807463_3bf05e87","context":null}
+{"query":"test audit main Wed Feb 18 20:33:24 UTC 2026","expected_id":"m_1771446804535_b7f04fd7","context":null}
+{"query":"test note from clawma agent","expected_id":"m_1771445983747_43b222a6","context":null}
+{"query":"test note from heartbeat agent","expected_id":"m_1771445981046_8f512b59","context":null}
+{"query":"direct test without agent flag","expected_id":"m_1771445029282_6ad7992d","context":null}
+{"query":"verify coder test 123","expected_id":"m_1771444944830_7200bd66","context":null}
+{"query":"test note from researcher agent","expected_id":"m_1771444875328_e6bdd2a9","context":null}
+{"query":"test note from main agent","expected_id":"m_1771444858055_eb19ff50","context":null}
+{"query":"test note from writer agent","expected_id":"m_1771444856649_852495b8","context":null}
+{"query":"test note from coder agent","expected_id":"m_1771444854320_037c1cf7","context":null}
+{"query":"test note from support agent","expected_id":"m_1771444851085_c4bafa75","context":null}
+{"query":"Test de integración SKILL.md Wed Feb 18 19:46:10 UTC 2026","expected_id":"m_1771443970123_e715a96b","context":null}
+{"query":"Test de integración SKILL.md Wed Feb 18 19:45:45 UTC 2026","expected_id":"m_1771443945299_d1efa167","context":null}
+{"query":"Test de integración SKILL.md Wed Feb 18 19:45:29 UTC 2026","expected_id":"m_1771443929083_db9aa388","context":null}
+{"query":"test memory","expected_id":"m_1771443916369_e25e5272","context":null}
+{"query":"Test de integración SKILL.md Wed Feb 18 19:45:12 UTC 2026","expected_id":"m_1771443912776_cf11630a","context":null}
+{"query":"Test de integración SKILL.md Wed Feb 18 19:44:51 UTC 2026","expected_id":"m_1771443891796_dbfe9e9e","context":null}
+{"query":"Test de integración SKILL.md Wed Feb 18 19:44:35 UTC 2026","expected_id":"m_1771443875382_3403feb8","context":null}
+{"query":"Investigar integración de BrainX V3\\nCompletado - todos los agentes configurados","expected_id":"m_1771214833888_eed99e49","context":"researcher:session"}
+{"query":"pattern: documentación\\nSiempre documentar los cambios en WORKLOG.md\\nsource:writer","expected_id":"m_1771214816620_de332b0a","context":"writer:learning"}
+{"query":"Migrar todos los agentes a BrainX V3\\nCentralización de memoria para mejor colaboración","expected_id":"m_1771214799282_60f85b80","context":"main:session"}
+{"query":"Test de verificación del sistema BrainX V3","expected_id":"m_1771214607538_82531e3e","context":null}
+{"query":"Prueba BrainX V3: ok 2026-02-15 22:05:56 UTC","expected_id":"m_1771193156809_e9488902","context":null}
+{"query":"Prueba BrainX V3: ok 2026-02-15 21:55:38 UTC","expected_id":"m_1771192538974_ebf1e273","context":null}
+{"query":"smoke-test: Emailbot","expected_id":"m_1771189299523_0183dd5d","context":"healthcheck"}
+{"query":"**Validado:** ✅ Reasoning accedió a info de Notion API desde cerebro central **Estado:** ✅ 8 agentes con memoria individ","expected_id":"memmd_4a02002155e3b1e4","context":"workspace-coder/MEMORY.md"}
+{"query":"# MEMORY.md - Jarvis Long-Term Memory > ⚠️ **NO cargar automáticamente** - Usar memory_search() bajo demanda > Para refe","expected_id":"memmd_20ab86aab1398ea7","context":"workspace-coder/MEMORY.md"}
+{"query":"Switch total a V3\\nTodos los agentes deben alimentar y leer del cerebro central global (Postgres+pgvector)","expected_id":"m_1771187533673_a06c0391","context":"global:session"}
+{"query":"All agents feed and can read central BrainX V3","expected_id":"m_1771187081413_fee3d45b","context":"brainx-architecture"}
+{"query":"PostgreSQL connection uses DATABASE_URL on localhost. pgvector is enabled.","expected_id":"test_1771186358087","context":"brainx-v3"}
+{"query":"API Keys movidas a ubicación segura","expected_id":"1771102044-a07c05884fb91864","context":"workspace/.env y session-init.sh limpiados, keys en ~/.openclaw/config/.env\n"}
+{"query":"Test post-fix","expected_id":"1771098469-50a42e8ba707498d","context":"Validación completa\n"}
+{"query":"RAG search bug fixed","expected_id":"1771098469-e81f1e4445287c96","context":"Function had set -e issues\n"}
+{"query":"BrainX V2 funciona sin Guardian","expected_id":"1771097883-77afa9720b1ac6d0","context":"Guardian es opcional, CLI es suficiente\n"}

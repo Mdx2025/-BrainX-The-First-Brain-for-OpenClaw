@@ -1,0 +1,4 @@
+{"query":"retry loop keeps hammering downstream API after 429","expected_key":"retry.loop","context":"proj-payments"}
+{"query":"how did we fix flaky deploy migrations rollback","expected_key":"deploy.migrations.rollback","context":"proj-infra"}
+{"query":"when should errors be promoted into runbook guidance","expected_key":"error.to.runbook.promotion","context":"proj-platform"}
+{"query":"phone/email secrets should be scrubbed before storing memory","expected_key":"privacy.pii.scrub","context":"proj-core"}

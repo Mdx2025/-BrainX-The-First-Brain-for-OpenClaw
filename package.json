@@ -4,7 +4,11 @@
   "private": true,
   "type": "commonjs",
   "scripts": {
-    "test": "node ./tests/smoke.js"
+    "test": "node ./tests/cli-v4.js",
+    "test:smoke": "node ./tests/smoke.js",
+    "test:rag": "node ./tests/rag.js",
+    "eval:memory-quality": "node ./scripts/eval-memory-quality.js --dataset ./tests/fixtures/memory-eval-sample.jsonl",
+    "eval:build-real-dataset": "node ./scripts/generate-eval-dataset-from-memories.js ./tests/fixtures/memory-eval-real.jsonl 80"
   },
   "dependencies": {
     "dotenv": "^17.3.1",

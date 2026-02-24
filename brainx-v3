@@ -17,7 +17,7 @@ case "$CMD" in
   health)
     node "$ROOT/tests/smoke.js"
     ;;
-  add|search|inject)
+  add|search|inject|resolve|promote-candidates|lifecycle-run|metrics)
     node "$ROOT/lib/cli.js" "$CMD" "$@"
     ;;
   *)
