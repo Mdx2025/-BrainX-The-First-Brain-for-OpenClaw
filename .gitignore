@@ -1,0 +1,9 @@
+node_modules/
+.env
+.DS_Store
+cron/health.log
+cron/cron-output.log
+data/
+tests/fixtures/memory-eval-real.jsonl
+package-lock.json
+pnpm-lock.yaml

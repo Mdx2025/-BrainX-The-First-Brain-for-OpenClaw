@@ -1,0 +1,38 @@
+{
+  "name": "brainx",
+  "version": "1.0.0",
+  "description": "🧠 The First Brain for OpenClaw — Persistent vector memory that gives your AI agents real memory. One brain, every agent, shared intelligence that grows smarter with every conversation.",
+  "type": "commonjs",
+  "author": "Mdx2025",
+  "license": "MIT",
+  "keywords": [
+    "openclaw",
+    "clawhub",
+    "ai-memory",
+    "vector-database",
+    "pgvector",
+    "embeddings",
+    "llm-memory",
+    "multi-agent",
+    "rag",
+    "semantic-search",
+    "auto-learning",
+    "hive-mind",
+    "postgresql",
+    "openai",
+    "agent-context",
+    "persistent-memory",
+    "cross-agent-learning",
+    "pii-scrubbing"
+  ],
+  "scripts": {
+    "test": "node ./tests/cli-v4.js",
+    "test:smoke": "node ./tests/smoke.js",
+    "test:rag": "node ./tests/rag.js",
+    "eval:memory-quality": "node ./scripts/eval-memory-quality.js --dataset ./tests/fixtures/memory-eval-sample.jsonl"
+  },
+  "dependencies": {
+    "dotenv": "^17.3.1",
+    "pg": "^8.13.1"
+  }
+}
