@@ -6,6 +6,10 @@
 #     but are never defined. The generate_topic() calls assign their counts to
 #     DECISION_COUNT/GOTCHA_COUNT but the raw output is captured locally and lost.
 #     Result: the Highlights section is always empty.
+#   - If MEMORY.md contains BRAINX:START/END markers in instructional text (e.g.
+#     "do not edit the <!-- BRAINX:START --> markers"), sed/awk would match the
+#     first occurrence instead of the last, causing duplicate block injection.
+#     Fixed in handler.js by using lastIndexOf(). Not fixed here (deprecated).
 #
 # The canonical hook is handler.js, deployed via:
 #   cp hook/{HOOK.md,handler.js,package.json} ~/.openclaw/hooks/brainx-auto-inject/
