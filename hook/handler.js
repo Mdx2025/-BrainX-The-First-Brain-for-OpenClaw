@@ -291,8 +291,10 @@ async function updateMemoryMd(workspaceDir, section) {
     // File doesn't exist — will create with just the section
   }
 
-  const startIdx = content.indexOf(BRAINX_START);
-  const endIdx = content.indexOf(BRAINX_END);
+  // Use lastIndexOf: MEMORY.md templates may reference the markers in
+  // instructional text — the real injection block is always the last occurrence.
+  const startIdx = content.lastIndexOf(BRAINX_START);
+  const endIdx = content.lastIndexOf(BRAINX_END);
 
   if (startIdx !== -1 && endIdx !== -1) {
     // Replace existing section
