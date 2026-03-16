@@ -5,9 +5,9 @@ node_modules/
 backups/
 BRAINX_CONTEXT.md
 brainx-topics/
-cron/*.log
-cron/health.log
-cron/cron-output.log
-tests/fixtures/memory-eval-real.jsonl
+cron/
+tests/
+scripts/
+hook/inject.sh
 package-lock.json
 pnpm-lock.yaml
