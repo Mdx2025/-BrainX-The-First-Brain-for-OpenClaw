@@ -215,53 +215,92 @@ async function queryAgentAwareMemories(pool, agentName, { limit = 8, minImportan
     return queryTopMemories(pool, { limit, minImportance, agentName });
   }
 
-  return withRetry(async () => {
-    // Build dynamic query with agent-specific filtering and boosting
-    const params = [minImportance, limit];
-    let paramIdx = 3;
+  // Split into own-agent + cross-agent slots (same strategy as queryTopMemories)
+  const crossSlots = Math.max(2, Math.floor(limit * 0.3));
+  const ownSlots = limit - crossSlots;
 
-    // Exclude types clause
+  return withRetry(async () => {
+    // Build shared clauses from profile
     let excludeClause = '';
+    const sharedParams = [];
+    let paramIdx = 3; // $1=minImportance, $2=limit
+
     if (profile.excludeTypes.length > 0) {
       excludeClause = ` AND type NOT IN (${profile.excludeTypes.map(() => `$${paramIdx++}`).join(',')})`;
-      params.push(...profile.excludeTypes);
+      sharedParams.push(...profile.excludeTypes);
     }
 
-    // Context boost: memories matching agent contexts get priority via ORDER BY
-    // Agent-specific memories (agent = agentName OR agent IS NULL) are always included
     let contextBoostExpr = '0';
     if (profile.contexts.length > 0) {
       const contextPlaceholders = profile.contexts.map(() => `$${paramIdx++}`).join(',');
-      params.push(...profile.contexts);
+      sharedParams.push(...profile.contexts);
       contextBoostExpr = `CASE WHEN context IN (${contextPlaceholders}) THEN 2 ELSE 0 END`;
     }
 
-    // Boost types: memories of boost types get +1 priority
     let boostTypeExpr = '0';
     if (profile.boostTypes.length > 0) {
       const boostPlaceholders = profile.boostTypes.map(() => `$${paramIdx++}`).join(',');
-      params.push(...profile.boostTypes);
+      sharedParams.push(...profile.boostTypes);
       boostTypeExpr = `CASE WHEN type IN (${boostPlaceholders}) THEN 1 ELSE 0 END`;
     }
 
-    // Agent affinity: boost memories from this agent
-    const agentBoostExpr = `CASE WHEN agent = $${paramIdx} THEN 3 WHEN agent IS NULL THEN 1 ELSE 0 END`;
-    params.push(agentName);
-
-    const sql = `SELECT content, tier, importance, type, agent, context
+    // 1. Own-agent memories (agent = agentName OR agent IS NULL)
+    const ownAgentParam = paramIdx++;
+    const ownParams = [minImportance, ownSlots, ...sharedParams, agentName];
+    const ownSql = `SELECT content, tier, importance, type, agent, context
        FROM brainx_memories
        WHERE tier IN ('hot', 'warm')
          AND importance >= $1
          AND superseded_by IS NULL
+         AND (agent = $${ownAgentParam} OR agent IS NULL)
          ${excludeClause}
-       ORDER BY (${agentBoostExpr} + ${contextBoostExpr} + ${boostTypeExpr}) DESC,
+       ORDER BY (${contextBoostExpr} + ${boostTypeExpr}) DESC,
                 importance DESC,
                 last_seen DESC NULLS LAST,
                 created_at DESC
        LIMIT $2`;
+    const { rows: ownRows } = await pool.query(ownSql, ownParams);
 
-    const { rows } = await pool.query(sql, params);
-    return rows;
+    // 2. Cross-agent memories (from other agents)
+    // Reset paramIdx for cross query
+    let crossParamIdx = 3;
+    const crossSharedParams = [];
+    let crossExcludeClause = '';
+    if (profile.excludeTypes.length > 0) {
+      crossExcludeClause = ` AND type NOT IN (${profile.excludeTypes.map(() => `$${crossParamIdx++}`).join(',')})`;
+      crossSharedParams.push(...profile.excludeTypes);
+    }
+    let crossContextBoost = '0';
+    if (profile.contexts.length > 0) {
+      const cp = profile.contexts.map(() => `$${crossParamIdx++}`).join(',');
+      crossSharedParams.push(...profile.contexts);
+      crossContextBoost = `CASE WHEN context IN (${cp}) THEN 2 ELSE 0 END`;
+    }
+    let crossBoostType = '0';
+    if (profile.boostTypes.length > 0) {
+      const bp = profile.boostTypes.map(() => `$${crossParamIdx++}`).join(',');
+      crossSharedParams.push(...profile.boostTypes);
+      crossBoostType = `CASE WHEN type IN (${bp}) THEN 1 ELSE 0 END`;
+    }
+    const crossAgentParam = crossParamIdx++;
+    const crossParams = [minImportance, crossSlots, ...crossSharedParams, agentName];
+    const crossSql = `SELECT content, tier, importance, type, agent, context
+       FROM brainx_memories
+       WHERE tier IN ('hot', 'warm')
+         AND importance >= $1
+         AND superseded_by IS NULL
+         AND agent IS DISTINCT FROM $${crossAgentParam} AND agent IS NOT NULL
+         ${crossExcludeClause}
+       ORDER BY
+         CASE WHEN 'cross-agent' = ANY(tags) THEN 1 ELSE 0 END DESC,
+         (${crossContextBoost} + ${crossBoostType}) DESC,
+         importance DESC,
+         last_seen DESC NULLS LAST,
+         created_at DESC
+       LIMIT $2`;
+    const { rows: crossRows } = await pool.query(crossSql, crossParams);
+
+    return [...ownRows, ...crossRows];
   }, "queryAgentAwareMemories");
 }
 
@@ -289,11 +328,23 @@ function buildMemorySection(agentName, timestamp, teamMems, ownMems) {
   lines.push("");
 
   if (teamMems.length > 0) {
+    // Split team memories: own-agent vs cross-agent for balanced display
+    const ownTeam = teamMems.filter(m => m.agent === agentName || !m.agent);
+    const crossTeam = teamMems.filter(m => m.agent && m.agent !== agentName);
+
     lines.push("### Top Memories");
-    for (const m of teamMems.slice(0, 6)) {
+    for (const m of ownTeam.slice(0, 5)) {
       lines.push(formatMemoryLine(m));
     }
     lines.push("");
+
+    if (crossTeam.length > 0) {
+      lines.push("### Cross-Agent Intel");
+      for (const m of crossTeam.slice(0, 3)) {
+        lines.push(`- **[${m.agent}/${m.tier}/imp:${m.importance}]** ${(m.content || '').slice(0, 120)}...`);
+      }
+      lines.push("");
+    }
   }
 
   if (ownMems.length > 0) {
