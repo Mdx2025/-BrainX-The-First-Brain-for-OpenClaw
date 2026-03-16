@@ -1,6 +1,6 @@
 {
   "name": "brainx-v5",
-  "version": "0.2.2",
+  "version": "0.2.5",
   "private": true,
   "type": "commonjs",
   "scripts": {
