@@ -1,5 +1,7 @@
 # 🧠 BrainX V5 — The First Brain for OpenClaw
 
+![BrainX Banner](assets/brainx-banner.png)
+
 BrainX V5 is a **persistent memory** system based on PostgreSQL + pgvector + OpenAI embeddings, designed for AI agents to remember, learn, and share knowledge across sessions.
 
 > **Name:** The repo/CLI keeps the historical name `brainx-v5`. The current version is **BrainX V5** with governance, observability, lifecycle management, and an LLM-powered auto-feeding system.
