@@ -37,7 +37,22 @@ Sistema de memoria persistida que usa embeddings vectoriales para recuperación 
 
 ## Auto-Inyección (Hook)
 
-BrainX V5 incluye un **hook de OpenClaw** que automáticamente inyecta memorias relevantes cuando un agente inicia:
+BrainX V5 incluye un **hook de OpenClaw** que automáticamente inyecta memorias relevantes cuando un agente inicia.
+
+### Production Validation Status
+
+Real validation completed on **2026-03-16**:
+- global hook enabled in `~/.openclaw/openclaw.json`
+- managed hook synced with `~/.openclaw/skills/brainx-v5/hook/`
+- active physical database: `brainx_v5`
+- real bootstrap smoke test passed for 10 agents:
+  - `kron`, `reasoning`, `raider`, `monitor`, `alert`, `clawma`, `sonnet`, `echo`, `max`, `venus`
+- expected evidence was confirmed:
+  - `<!-- BRAINX:START -->` block written into `MEMORY.md`
+  - `Updated:` timestamp present
+  - fresh row recorded in `brainx_pilot_log`
+
+If this validation becomes stale, rerun a bootstrap smoke test before assuming runtime is still healthy.
 
 ### Cómo funciona:
 

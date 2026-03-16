@@ -1,12 +1,105 @@
 # 🧠 BrainX V5 — Vector Memory Engine for OpenClaw
 
+![BrainX Banner](assets/brainx-banner.png)
+
 BrainX V5 is a **persistent memory** system based on PostgreSQL + pgvector + OpenAI embeddings, designed for AI agents to remember, learn, and share knowledge across sessions.
 
-> **Name:** The repo/CLI keeps the historical name `brainx-v5`. The current version is **V4 Core** with governance, observability, lifecycle management, and an LLM-powered auto-feeding system.
+> **Name:** The repo/CLI keeps the historical name `brainx-v5`. The current version is **BrainX V5** with governance, observability, lifecycle management, and an LLM-powered auto-feeding system.
 
 ---
 
 ## Status
+
+### Validation Proof — 2026-03-16
+
+BrainX V5 was revalidated end-to-end against the live OpenClaw runtime after the hook redeploy and physical database migration to `brainx_v5`.
+
+**What was validated:**
+- `~/.openclaw/openclaw.json` has the managed hook enabled at `hooks.internal.entries["brainx-auto-inject"]`
+- managed hook files in `~/.openclaw/hooks/brainx-auto-inject/` match the BrainX V5 source hook exactly:
+  - `HOOK.md`
+  - `handler.js`
+  - `package.json`
+  - `agent-profiles.json`
+- BrainX skill runtime points to the physical database `brainx_v5`
+- `./brainx-v5 health` returns OK after the migration
+- `./brainx-v5 doctor` recognizes the consolidated cron architecture
+- live bootstrap injection works and lands telemetry in `brainx_pilot_log`
+
+**Smoke-tested agents (real bootstrap hook execution):**
+- `kron`
+- `reasoning`
+- `raider`
+- `monitor`
+- `alert`
+- `clawma`
+- `sonnet`
+- `echo`
+- `max`
+- `venus`
+
+**Smoke-test result:**
+- **10/10 agents passed**
+- each run wrote a fresh BrainX block into `MEMORY.md`
+- each run included an `Updated:` timestamp
+- each run recorded fresh injection telemetry
+- telemetry confirmed `current_database() = brainx_v5`
+
+**Important scope note:**
+- This proves the global OpenClaw integration is healthy and working for a representative multi-agent set.
+- It does **not** mean every conceivable historical or disabled agent/workspace was re-bootstrapped individually on that date.
+
+## Post-Update Sync Checklist (mandatory after every BrainX V5 update)
+
+Use this checklist every time the skill is updated to avoid runtime drift between the skill source and the managed hook deployed in OpenClaw.
+
+1. **Sync the managed hook from the skill source**
+   ```bash
+   mkdir -p ~/.openclaw/hooks/brainx-auto-inject
+   cp ~/.openclaw/skills/brainx-v5/hook/{HOOK.md,handler.js,package.json,agent-profiles.json} ~/.openclaw/hooks/brainx-auto-inject/
+   ```
+2. **Verify there are no stale V4 references in the live hook or active source files**
+   ```bash
+   rg -n "BrainX V4|brainx-v4|brainx_v4" \
+     ~/.openclaw/hooks/brainx-auto-inject \
+     ~/.openclaw/skills/brainx-v5/hook \
+     ~/.openclaw/skills/brainx-v5/lib
+   ```
+   Expected result: no matches inside the managed hook or active BrainX V5 runtime code.
+3. **Validate doctor against the current cron architecture**
+   ```bash
+   cd ~/.openclaw/skills/brainx-v5 && ./brainx-v5 doctor
+   ```
+   Expected result: cron check should recognize the consolidated pipeline (`BrainX Daily Core Pipeline V5`) when that architecture is in use.
+4. **Run a bootstrap smoke test**
+   - Start a fresh agent session or invoke the hook against a disposable workspace.
+   - Verify all three outputs refresh:
+     - `MEMORY.md`
+     - `BRAINX_CONTEXT.md`
+     - `brainx-topics/*.md`
+5. **Verify hook telemetry landed in the database**
+   - Confirm a new row appears in `brainx_pilot_log` after the smoke test.
+6. **Verify runtime config still points to the managed hook**
+   - Check `~/.openclaw/openclaw.json` keeps `hooks.internal.entries["brainx-auto-inject"].enabled = true`.
+7. **If cron architecture changes again, update both code and docs together**
+   - Update `lib/doctor.js`
+   - Update this `README.md`
+   - Update `hook/HOOK.md` if deployment steps change
+   - Update `CRON.md` if production scheduler topology changed
+
+### Never skip these files when updating BrainX V5
+
+- `~/.openclaw/skills/brainx-v5/README.md`
+- `~/.openclaw/skills/brainx-v5/lib/doctor.js`
+- `~/.openclaw/skills/brainx-v5/hook/HOOK.md`
+- `~/.openclaw/skills/brainx-v5/hook/handler.js`
+- `~/.openclaw/skills/brainx-v5/hook/agent-profiles.json`
+- `~/.openclaw/hooks/brainx-auto-inject/HOOK.md`
+- `~/.openclaw/hooks/brainx-auto-inject/handler.js`
+- `~/.openclaw/hooks/brainx-auto-inject/agent-profiles.json`
+- `~/.openclaw/cron/jobs.json` (if scheduler topology changes)
+- `~/.openclaw/workspace/CRON.md` (if production cron behavior changes)
+
 
 | # | Feature | Description |
 |---|---------|-------------|

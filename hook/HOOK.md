@@ -67,6 +67,6 @@ In `openclaw.json`:
 
 ## Requirements
 
-- `DATABASE_URL` - PostgreSQL connection string (brainx_v5 database)
+- `DATABASE_URL` - PostgreSQL connection string for the BrainX database (the physical DB name may still be legacy-named in existing deployments)
 - BrainX V5 skill installed at `~/.openclaw/skills/brainx-v5/`
 - `pg` module available in brainx-v5/node_modules/
