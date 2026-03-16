@@ -6,7 +6,7 @@ BrainX V5 is a **persistent memory** system based on PostgreSQL + pgvector + Ope
 
 | # | Feature | Description |
 |---|---------|-------------|
-| 1 | ✅ **Production** | Active on 9 agents with centralized shared memory |
+| 1 | ✅ **Production** | Active on 10+ agents with centralized shared memory |
 | 2 | 🧠 **Auto-Learning** | Learns on its own from every conversation without human intervention |
 | 3 | 💾 **Persistent Memory** | Remembers across sessions — PostgreSQL + pgvector |
 | 4 | 🤝 **Shared Memory** | All agents share the same knowledge pool |
@@ -27,6 +27,20 @@ BrainX V5 is a **persistent memory** system based on PostgreSQL + pgvector + Ope
 | 19 | 📈 **Telemetry** | Query logs, injection metrics, and health monitoring built in |
 | 20 | 🧵 **Supersede Chains** | Old memories can be replaced cleanly without losing history |
 | 21 | 🌀 **Memory Distillation** | Consolidates raw logs into higher-signal memories over time |
+| 22 | 🛡️ **Pre-Action Advisory** | Queries past mistakes before high-risk tool execution (exec, deploy, delete) |
+| 23 | 👤 **Agent Profiles** | Per-agent hook injection: boosts/filters memories by agent role |
+| 24 | 🔀 **Cross-Agent Injection Slots** | Hook reserves 30% of context slots for other agents' memories |
+| 25 | 📊 **Metrics Dashboard** | CLI dashboard with top patterns, memory stats, and usage trends |
+| 26 | 🔧 **Doctor & Auto-Fix** | Schema integrity check + automatic repair of detected issues |
+| 27 | 👍 **Memory Feedback** | Mark memories as useful/useless/incorrect to refine quality |
+| 28 | 🗺️ **Trajectory Recording** | Records problem→solution paths for future reference |
+| 29 | 📝 **Learning Details** | Extended metadata extraction for learnings and gotchas |
+| 30 | 🔄 **Lifecycle Management** | Automatic promotion/degradation of memories by age and usage |
+| 31 | 📥 **Workspace Import** | Imports existing MEMORY.md files from all workspaces into the brain |
+| 32 | 🧪 **Eval Dataset Generation** | Generates evaluation datasets from real memories for quality testing |
+| 33 | 🏗️ **Session Snapshots** | Captures full agent state at session close for analysis |
+| 34 | 🧹 **Low-Signal Cleanup** | Automatic cleanup of low-value, outdated, or redundant memories |
+| 35 | 🔃 **Memory Reclassification** | Reclassifies memories with correct types and categories post-hoc |
 
 > **Name:** The repo/CLI keeps the historical name `brainx-v5`. The current version is **BrainX V5** with governance, observability, lifecycle management, and an LLM-powered auto-feeding system.
 
