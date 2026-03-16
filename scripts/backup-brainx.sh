@@ -52,37 +52,43 @@ cp "${HOME}/.openclaw/openclaw.json" "$BACKUP_PATH/config/openclaw.json" 2>/dev/
 
 echo "   ✅ Configuración respaldada"
 
-# 3. Backup de hooks personalizados
-echo "🪝 3/6 Respaldando hooks personalizados..."
-if [ -d "${HOME}/.openclaw/hooks/internal" ]; then
-    mkdir -p "$BACKUP_PATH/hooks"
-    cp -r "${HOME}/.openclaw/hooks/internal" "$BACKUP_PATH/hooks/" 2>/dev/null || true
-    echo "   ✅ Hooks respaldados"
+# 3. Backup de hook handler (V5)
+echo "🪝 3/6 Respaldando hook handler..."
+mkdir -p "$BACKUP_PATH/hooks"
+if [ -d "$BRAINX_DIR/hook" ]; then
+    cp -r "$BRAINX_DIR/hook" "$BACKUP_PATH/hooks/" 2>/dev/null || true
+    echo "   ✅ Hook handler respaldado"
 else
-    echo "   ℹ️  No hay hooks personalizados"
+    echo "   ℹ️  No hay hook handler"
 fi
 
-# 4. Backup de documentación brainx.md en workspaces
-echo "📝 4/6 Respaldando brainx.md de workspaces..."
+# 4. Backup de MEMORY.md en workspaces
+echo "📝 4/6 Respaldando MEMORY.md de workspaces..."
 mkdir -p "$BACKUP_PATH/workspaces"
-for ws in "${HOME}/.openclaw/workspace-"*/; do
-    if [ -f "$ws/brainx.md" ]; then
+for ws in "${HOME}/.openclaw/workspace" "${HOME}/.openclaw/workspace-"*/; do
+    [ -d "$ws" ] || continue
+    if [ -f "$ws/MEMORY.md" ]; then
         name=$(basename "$ws")
-        cp "$ws/brainx.md" "$BACKUP_PATH/workspaces/${name}_brainx.md" 2>/dev/null || true
+        cp "$ws/MEMORY.md" "$BACKUP_PATH/workspaces/${name}_MEMORY.md" 2>/dev/null || true
+    fi
+    if [ -d "$ws/brainx-topics" ]; then
+        mkdir -p "$BACKUP_PATH/workspaces/${name}_topics"
+        cp "$ws/brainx-topics/"*.md "$BACKUP_PATH/workspaces/${name}_topics/" 2>/dev/null || true
     fi
 done
 echo "   ✅ $(ls -1 "$BACKUP_PATH/workspaces" 2>/dev/null | wc -l) archivos respaldados"
 
-# 5. Backup de wrappers
-echo "🔧 5/6 Respaldando wrappers de workspaces..."
-mkdir -p "$BACKUP_PATH/wrappers"
-for ws in "${HOME}/.openclaw/workspace-"*/; do
-    if [ -f "$ws/hooks/brainx-v5-wrapper.sh" ]; then
+# 5. Backup de BRAINX_CONTEXT.md
+echo "🔧 5/6 Respaldando context files..."
+mkdir -p "$BACKUP_PATH/context"
+for ws in "${HOME}/.openclaw/workspace" "${HOME}/.openclaw/workspace-"*/; do
+    [ -d "$ws" ] || continue
+    if [ -f "$ws/BRAINX_CONTEXT.md" ]; then
         name=$(basename "$ws")
-        cp "$ws/hooks/brainx-v5-wrapper.sh" "$BACKUP_PATH/wrappers/${name}_wrapper.sh" 2>/dev/null || true
+        cp "$ws/BRAINX_CONTEXT.md" "$BACKUP_PATH/context/${name}_BRAINX_CONTEXT.md" 2>/dev/null || true
     fi
 done
-echo "   ✅ $(ls -1 "$BACKUP_PATH/wrappers" 2>/dev/null | wc -l) wrappers respaldados"
+echo "   ✅ $(ls -1 "$BACKUP_PATH/context" 2>/dev/null | wc -l) archivos respaldados"
 
 # 6. Crear archivo de metadatos
 echo "📋 6/6 Creando metadatos..."

@@ -2,12 +2,22 @@
 const fs = require('fs');
 const path = require('path');
 const { Client } = require('pg');
+try { require('dotenv').config({ path: path.join(__dirname, '..', '.env') }); } catch (_) {}
 
 async function main() {
-  const outPath = process.argv[2] || path.join(__dirname, '..', 'tests', 'fixtures', 'memory-eval-real.jsonl');
-  const limit = Number.parseInt(process.argv[3] || '80', 10);
+  const argv = process.argv.slice(2);
+  const dryRun = argv.includes('--dry-run');
+  const limitIdx = argv.indexOf('--limit');
+  const limit = limitIdx !== -1 ? Number.parseInt(argv[limitIdx + 1] || '80', 10) : 80;
+  // Positional args: skip flag values
+  const skipSet = new Set();
+  if (limitIdx !== -1) { skipSet.add(limitIdx); skipSet.add(limitIdx + 1); }
+  argv.forEach((a, i) => { if (a.startsWith('--')) skipSet.add(i); });
+  const positional = argv.filter((_, i) => !skipSet.has(i));
+  const outPath = positional[0] || path.join(__dirname, '..', 'tests', 'fixtures', 'memory-eval-real.jsonl');
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) throw new Error('DATABASE_URL is required');
+  if (Number.isNaN(limit) || limit < 1) throw new Error(`Invalid limit: ${limit}`);
 
   const client = new Client({ connectionString: databaseUrl });
   await client.connect();
@@ -32,9 +42,13 @@ async function main() {
       });
     });
 
-    fs.mkdirSync(path.dirname(outPath), { recursive: true });
-    fs.writeFileSync(outPath, `${lines.join('\n')}\n`, 'utf8');
-    console.log(JSON.stringify({ ok: true, outPath, count: lines.length }, null, 2));
+    if (dryRun) {
+      console.log(JSON.stringify({ ok: true, dryRun: true, count: lines.length, outPath }, null, 2));
+    } else {
+      fs.mkdirSync(path.dirname(outPath), { recursive: true });
+      fs.writeFileSync(outPath, `${lines.join('\n')}\n`, 'utf8');
+      console.log(JSON.stringify({ ok: true, outPath, count: lines.length }, null, 2));
+    }
   } finally {
     await client.end();
   }
