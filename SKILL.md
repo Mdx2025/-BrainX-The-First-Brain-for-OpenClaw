@@ -22,6 +22,46 @@ user-invocable: true
 
 Persistent memory system using vector embeddings for contextual retrieval in AI agents.
 
+## 35 Features
+
+| # | Feature | Description |
+|---|---------|-------------|
+| 1 | ✅ **Production** | Active on 10+ agents with centralized shared memory |
+| 2 | 🧠 **Auto-Learning** | Learns on its own from every conversation without human intervention |
+| 3 | 💾 **Persistent Memory** | Remembers across sessions — PostgreSQL + pgvector |
+| 4 | 🤝 **Shared Memory** | All agents share the same knowledge pool |
+| 5 | 💉 **Automatic Briefing** | Personalized context injection at each agent startup |
+| 6 | 🔎 **Semantic Search** | Searches by meaning, not exact keywords |
+| 7 | 🏷️ **Intelligent Classification** | Auto-typed: facts, decisions, learnings, gotchas, notes |
+| 8 | 📊 **Usage-Based Prioritization** | Hot/warm/cold tiers — automatic promote/degrade based on access |
+| 9 | 🤝 **Cross-Agent Learning** | Propagates important gotchas and learnings across all agents |
+| 10 | 🔄 **Anti-Duplicates** | Semantic deduplication by cosine similarity with intelligent merge |
+| 11 | ⚡ **Anti-Contradictions** | Detects contradictory memories and supersedes the obsolete one |
+| 12 | 📋 **Session Indexing** | Searches past conversations (30-day retention) |
+| 13 | 🔒 **PII Scrubbing** | Automatic redaction of sensitive data before storage |
+| 14 | 🔮 **Pattern Detection** | Detects recurring patterns and promotes them automatically |
+| 15 | 🛡️ **Disaster Recovery** | Full backup/restore (DB + configs + hooks + workspaces) |
+| 16 | ⭐ **Quality Scoring** | Evaluates memory quality and promotes only what deserves to persist |
+| 17 | ⚙️ **Fact Extraction** | Regex + LLM pipelines capture both operational facts and nuanced learnings |
+| 18 | 📦 **Context Packs** | Weekly project packs and bootstrap topic files for fast situational awareness |
+| 19 | 📈 **Telemetry** | Query logs, injection metrics, and health monitoring built in |
+| 20 | 🧵 **Supersede Chains** | Old memories can be replaced cleanly without losing history |
+| 21 | 🌀 **Memory Distillation** | Consolidates raw logs into higher-signal memories over time |
+| 22 | 🛡️ **Pre-Action Advisory** | Queries past mistakes before high-risk tool execution |
+| 23 | 👤 **Agent Profiles** | Per-agent hook injection: boosts/filters memories by agent role |
+| 24 | 🔀 **Cross-Agent Injection Slots** | Hook reserves 30% of context slots for other agents' memories |
+| 25 | 📊 **Metrics Dashboard** | CLI dashboard with top patterns, memory stats, and usage trends |
+| 26 | 🔧 **Doctor & Auto-Fix** | Schema integrity check + automatic repair of detected issues |
+| 27 | 👍 **Memory Feedback** | Mark memories as useful/useless/incorrect to refine quality |
+| 28 | 🗺️ **Trajectory Recording** | Records problem→solution paths for future reference |
+| 29 | 📝 **Learning Details** | Extended metadata extraction for learnings and gotchas |
+| 30 | 🔄 **Lifecycle Management** | Automatic promotion/degradation of memories by age and usage |
+| 31 | 📥 **Workspace Import** | Imports existing MEMORY.md files from all workspaces into the brain |
+| 32 | 🧪 **Eval Dataset Generation** | Generates evaluation datasets from real memories for quality testing |
+| 33 | 🏗️ **Session Snapshots** | Captures full agent state at session close for analysis |
+| 34 | 🧹 **Low-Signal Cleanup** | Automatic cleanup of low-value, outdated, or redundant memories |
+| 35 | 🔃 **Memory Reclassification** | Reclassifies memories with correct types and categories post-hoc |
+
 ## When to Use
 
 ✅ **USE when:**
