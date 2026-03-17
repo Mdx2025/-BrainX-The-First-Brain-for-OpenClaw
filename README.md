@@ -396,6 +396,8 @@ All crons that feed the auto-learning cycle:
 | `context-pack-builder.js` | 📦 Generates weekly context packs per agent/project | No | Weekly |
 | `cleanup-low-signal.js` | 🧹 Cleans low-value memories (short, low importance) | No | Weekly |
 | `dedup-supersede.js` | 🔗 Exact deduplication and superseding of identical memories | No | Weekly |
+| `error-harvester.js` | 🔍 Scans session logs for command failures, saves as gotchas | No | Daily |
+| `auto-promoter.js` | 📋 Detects high-recurrence patterns, suggests workspace promotions | No | Weekly |
 | `reclassify-memories.js` | 🏷️ Reclassifies existing memories to new categories | No | Manual |
 | `eval-memory-quality.js` | 📊 Offline evaluation of retrieval quality | No | Manual |
 | `generate-eval-dataset-from-memories.js` | 📋 Generates JSONL dataset for benchmarks | No | Manual |
@@ -591,6 +593,31 @@ The `fact` type is a shortcut for `add --type fact --tier hot --category infrast
 
 # Limit results
 ./brainx-v5 facts --limit 5
+```
+
+### `feature` — Shortcut for feature requests
+
+```bash
+# Save a feature request
+./brainx-v5 feature "Add webhook support for real-time notifications"
+
+# With project context
+./brainx-v5 feature --content "Dark mode for dashboard" --context "project:control-panel" --importance 8
+```
+
+Shortcut for: `add --type feature_request --tier warm --importance 6 --category feature_request`
+
+### `features` — List stored feature requests
+
+```bash
+# All feature requests
+./brainx-v5 features
+
+# Filter by status
+./brainx-v5 features --status pending
+
+# Filter by context
+./brainx-v5 features --context "project:emailbot" --limit 10
 ```
 
 ### `search` — Semantic search
@@ -1268,6 +1295,86 @@ node scripts/cross-agent-learning.js --max-shares 5
 2. Filters those with `agent:*` context (specific to one agent)
 3. Creates a copy with `global` context so all agents can see it
 4. Avoids duplicates by checking if a global copy already exists
+
+---
+
+### `error-harvester.js` — Post-Error Capture
+
+**File:** `scripts/error-harvester.js`
+
+Scans OpenClaw session logs for command failures (non-zero exit codes, error patterns) and stores them as gotcha memories in BrainX. Runs in the daily cron pipeline.
+
+#### Usage
+
+```bash
+# Dry run (recommended first)
+node scripts/error-harvester.js --dry-run --verbose
+
+# Scan last 24 hours (default)
+node scripts/error-harvester.js
+
+# Custom time window
+node scripts/error-harvester.js --hours 48
+```
+
+#### Arguments
+
+| Argument | Default | Description |
+|----------|---------|-------------|
+| `--hours` | 24 | Time window to scan |
+| `--dry-run` | false | Show errors without saving |
+| `--verbose` | false | Print each error found |
+
+#### Detects
+
+- Non-zero exit codes from tool executions
+- `TypeError`, `ReferenceError`, `SyntaxError` patterns
+- `ENOENT`, `EACCES`, `EPERM`, `ECONNREFUSED` errors
+- `permission denied`, `command not found` patterns
+
+Saved memories are tagged `auto-harvested,error` with type `gotcha`.
+
+---
+
+### `auto-promoter.js` — Pattern Promotion Suggestions
+
+**File:** `scripts/auto-promoter.js`
+
+Detects high-recurrence patterns and generates suggestions for which workspace file they should be promoted to (AGENTS.md, TOOLS.md, or SOUL.md). **Does not write to workspace files** — outputs suggestions only.
+
+#### Usage
+
+```bash
+# View suggestions
+node scripts/auto-promoter.js
+
+# JSON output
+node scripts/auto-promoter.js --json
+
+# Save suggestions as BrainX memories
+node scripts/auto-promoter.js --save
+
+# Custom thresholds
+node scripts/auto-promoter.js --min-recurrence 5 --days 14
+```
+
+#### Arguments
+
+| Argument | Default | Description |
+|----------|---------|-------------|
+| `--min-recurrence` | 3 | Minimum pattern recurrence to qualify |
+| `--days` | 30 | Time window |
+| `--json` | false | JSON output |
+| `--save` | false | Save suggestions as BrainX memories (tag: `promotion-suggestion`) |
+| `--dry-run` | false | Simulate without saving |
+
+#### Classification Logic
+
+| Target File | Triggers |
+|-------------|----------|
+| `TOOLS.md` | Infrastructure, CLI, API, config, integration patterns |
+| `SOUL.md` | Behavioral, style, communication patterns |
+| `AGENTS.md` | Workflow, execution, delegation patterns |
 
 ---
 
