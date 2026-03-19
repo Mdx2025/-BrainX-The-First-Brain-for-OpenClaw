@@ -1,5 +1,5 @@
 ---
-name: "BrainX - The First Brain for OpenClaw"
+name: "BrainX V5 — The First Brain for OpenClaw"
 description: |
   Vector memory engine with PostgreSQL + pgvector + OpenAI embeddings.
   Stores, searches, and injects contextual memories into LLM prompts.
