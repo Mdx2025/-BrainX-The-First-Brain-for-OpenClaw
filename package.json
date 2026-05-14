@@ -14,5 +14,6 @@
     "dotenv": "^17.3.1",
     "openai": "^6.26.0",
     "pg": "^8.13.1"
-  }
+  },
+  "packageManager": "pnpm@11.1.2"
 }
