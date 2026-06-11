@@ -1,0 +1,342 @@
+{
+  "version": 3,
+  "lastReviewed": "2026-05-24",
+  "notes": "Post LLM-as-Router migration. routerMode=active reemplaza el threshold escalar (relevanceScoreMinimum 0.85) y los demás dials viejos en jit_recall — la decisión la toma gpt-5-nano por query. 2026-04-29 agrega context broker: clasifica intención, runtime family y selecciona una sola surface antes de recuperar evidencia; follow-up agrega session_rotation recovery leyendo brainx_context_state antes de upsert y registrando brainx_session_rotation_events. Reactivadas session_snapshots (every 4h) + trajectories (Daily V5 step 13) + cleanup weekly. Agregados dedup-supersede + cleanup-low-signal en bloque Sunday. Agregado handoff-promoter para promover snapshots a memorias hot + artifact ledger. 2026-05-01 agrega event_ledger como índice forense determinístico para fixes/incidents/decisions/handoffs/audits; no reemplaza memories ni snapshots. 2026-05-06 agrega project_ground determinístico desde archivos planos; no reemplaza JIT recall ni working memory. surface-policy ahora separa retrieval/captura/maintenance.",
+  "surfaces": {
+    "jit_recall": {
+      "state": "active",
+      "owner": "plugin",
+      "expectedSchedule": "runtime",
+      "configKey": "jitRecall",
+      "decisionStrategy": "llm_router",
+      "notes": "2026-04-26 21:47: routerMode=active. 2026-04-27 00:02: jitRecallAllowCrossAgent=true. 2026-04-27 01:13: ELIMINADOS crossAgentTagRequired + crossAgentRequireVerified (root fix — el router LLM filtra cross-agent semánticamente vía SYSTEM_PROMPT, sin dials escalares). 2026-04-29: context broker decide si jit_recall debe correr; ACP generic domain recall queda suprimido salvo recovery, explicit/historical/procedural/troubleshooting; alert/monitor/monitor-public quedan en jitRecallDisabledAgents para evitar ruido de cron/heartbeat. Cada fire pasa los top-K candidates al LLM router (gpt-5-nano primary, fallback disabled). Router devuelve proposed_ids -> reemplazan el `selected`; proposed_ids vacío significa no inyectar. Safety guards mantenidos: jitRecallDisabledAgents (denylist), superseded_by IS NULL (correctness), sensitivity != restricted (security), recallMinSimilarity 0.45 (corte pre-search). Si router falla/timeout, solo se conserva fallback con alineación fuerte al prompt; candidatos débiles se descartan."
+    },
+    "context_broker": {
+      "state": "active",
+      "owner": "plugin",
+      "expectedSchedule": "runtime",
+      "configKey": "bridge.ts",
+      "notes": "Agregado 2026-04-29. Clasifica TurnRequestIntent + RuntimeFamily, selecciona una sola surface por turno y registra decision_summary.surface_plan. Follow-up: TurnRequestIntent incluye session_rotation; el plugin compara previous brainx_context_state.session_id contra ctx.sessionId para el mismo sessionKey y dispara recovery_preflight solo para prompts significativos no-ack/no-cron. session_rotation tiene prioridad sobre triggers genericos y se audita en brainx_session_rotation_events. Objetivo: BrainX como broker de evidencia, no injector genérico."
+    },
+    "project_ground": {
+      "state": "active",
+      "owner": "plugin",
+      "expectedSchedule": "runtime",
+      "configKey": "~/.openclaw/project-ground/registry.json",
+      "notes": "Agregado 2026-05-06. Capa determinística para ground operativo por proyecto. Lee registry + packs markdown chicos desde ~/.openclaw/project-ground, inyecta como prependSystemContext antes de BrainX recovery/JIT/WM/wiki, solo cuando hay projectKey explícito o binding determinístico por sessionKey/channel/agentOnly. No usa similarity, router ni DB; no debe contener secretos."
+    },
+    "router_llm": {
+      "state": "active",
+      "owner": "plugin",
+      "expectedSchedule": "runtime",
+      "configKey": "routerMode",
+      "notes": "Componente nuevo 2026-04-26. Source: extensions/brainx/src/router.ts. Telemetría persistida en brainx_runtime_injections.decision_summary.router{mode, applied, model, fallback_used, proposed_ids, reason, latency_ms, prompt_tokens, completion_tokens, error, input_candidates, selected_overlap, active_mem_selected, active_snap_selected, continuity_signal, snapshot_candidates_added, snapshots_proposed}. Costo ~$0.10/sem con gpt-5-nano. Latencia objetivo p95 < 3000ms (timeout hard)."
+    },
+    "working_memory": {
+      "state": "active",
+      "owner": "plugin",
+      "expectedSchedule": "runtime",
+      "configKey": "workingMemory",
+      "notes": "Reactivada 2026-04-16 con MiniMax-M2.7 summarization (cooldown 45s). Renderiza bloque separado (no pasa por router). Project-scoped via factsByProject + activeProject gate. State persisted en ~/.openclaw/brainx-working-memory/<agent>/<sha24>.json."
+    },
+    "advisory_feedback": {
+      "state": "active",
+      "owner": "plugin",
+      "expectedSchedule": "runtime",
+      "configKey": "toolAdvisories",
+      "notes": "Pre-tool-call advisory paralelo al router. Whitelist de high-risk tools (bash/exec/write/edit/git/deploy/etc.). Reactivada 2026-04-16 con requireApproval threshold 0.88. Sin cambios post-router."
+    },
+    "capture_tool_failures": {
+      "state": "active",
+      "owner": "plugin",
+      "expectedSchedule": "runtime",
+      "configKey": "captureToolFailures",
+      "notes": "Captura post-tool-call de fallos. Escribe fallos como memorias gotcha en brainx_memories con tag tool-failure cuando writeFailuresToBrainx=true, y opcionalmente daily memory file cuando writeFailuresToDailyMemory=true. Independiente del router."
+    },
+    "wiki_digest": {
+      "state": "active",
+      "owner": "plugin",
+      "expectedSchedule": "runtime",
+      "configKey": "wikiDigest",
+      "notes": "Compiled wiki digest (~/brainx-vault/.brainx-wiki/cache/) inyectado como bloque separado. Signal-gated (wikiDigestPromptSignalsOnly=true) + minRelevance 0.05. Daily V5 step 10 recompila."
+    },
+    "session_snapshots": {
+      "state": "active",
+      "owner": "skill+plugin",
+      "expectedSchedule": "every 4h",
+      "script": "scripts/session-snapshot.js",
+      "cron": "BrainX Review Loop",
+      "notes": "Reactivada 2026-04-26 (estaba detenida desde 2026-04-02). Desde 2026-05-26 corre due-gated every 4h dentro de BrainX Review Loop → skills/brainx/cron/brainx-review-loop-cron.sh → brainx-session-snapshot-cron.sh → node scripts/session-snapshot.js --hours 5 --max-sessions 12, seguido por handoff-promoter. Quality filters: minTurnCount>=5 (o blocker/error), minSummaryChars>=200, hasStateSignal (non-/tmp file OR blocker OR pending OR error). Recall: bridge.ts:fetchRecentSessionSnapshots() consulta cuando SESSION_CONTINUITY_RE fires (router decide si los inyecta como bloque 'Handoff continuity from previous session(s)'). Cleanup corre domingo dentro de BrainX Maintenance, TTL 30d (60d para blocked/critical), dedup por (agent, project, DATE(session_end))."
+    },
+    "handoff_promoter": {
+      "state": "active",
+      "owner": "skill",
+      "expectedSchedule": "every 4h + daily",
+      "script": "scripts/handoff-promoter.js",
+      "wrapperStep": "handoff-promoter",
+      "cron": "BrainX Review Loop",
+      "notes": "Agregado 2026-04-28. Lee brainx_session_snapshots recientes y promueve señal estable a brainx_memories tier=hot + brainx_artifact_ledger. 2026-04-29 escribe artifact_role=final_deliverable, provenance=promoted_handoff, finality_score=0.95 y metadata de snapshot. Enforce: no promueve /tmp como durable, redacts emails, salta password/token/credential summaries, excluye alert/monitor/heartbeat, usa IDs determinísticos para no duplicar artefactos y no re-embeddar memorias idénticas. Cierra el gap donde un snapshot existía pero la sesión rotada no lo recordaba como memoria durable."
+    },
+    "event_ledger": {
+      "state": "active",
+      "owner": "skill+CLI",
+      "expectedSchedule": "manual",
+      "script": "scripts/event-ledger.js",
+      "cli": "brainx event",
+      "notes": "Agregado 2026-05-01. Tabla brainx_event_ledger para índice forense determinístico de fixes, incidents, decisions, deployments, handoffs y audits. Indexa fecha/proyecto/dominio/agente/tipo/status/tags y opcionalmente embedding para búsqueda semántica. Complementa brainx_memories; no es superficie runtime ni reemplaza handoff-promoter."
+    },
+    "trajectories": {
+      "state": "active",
+      "owner": "skill",
+      "expectedSchedule": "daily",
+      "script": "scripts/trajectory-recorder.js",
+      "wrapperStep": "trajectory-recorder",
+      "notes": "Reactivada 2026-04-26 (estaba detenida desde 2026-04-02). Step 13 del Daily V5 wrapper: timeout 240 node scripts/trajectory-recorder.js --hours 24 --max-sessions 12. Usa gpt-4.1-mini para extraer problem→solution→outcome. Tracker: data/trajectory-sessions.json. Cleanup weekly: TTL 60d AND times_used=0; rows con times_used>0 keep indefinitely."
+    },
+    "cleanup_snapshots_trajectories": {
+      "state": "active",
+      "owner": "skill",
+      "expectedSchedule": "weekly Sunday 04:00 UTC",
+      "script": "scripts/cleanup-snapshots-trajectories.js",
+      "cron": "BrainX Cleanup (snapshots+trajectories)",
+      "notes": "Componente nuevo 2026-04-26. Mantiene la salud de las 2 tablas long-lived: purga snapshots>30d (60d para blocked/critical), dedup por (agent,project,date), purga trajectories>60d con times_used=0."
+    },
+    "dedup_supersede": {
+      "state": "active",
+      "owner": "skill",
+      "expectedSchedule": "weekly Sunday (Daily V5 wrapper)",
+      "script": "scripts/dedup-supersede.js",
+      "wrapperStep": "dedup-supersede",
+      "notes": "Agregado al wrapper 2026-04-26. Hash-fingerprint dedup (md5 type+content+context+agent) marca duplicados exactos como superseded_by->newest. Útil con router active porque router puede inyectar dups si ambos pasan filterRecallRows; mejor mantener corpus limpio."
+    },
+    "cleanup_low_signal": {
+      "state": "active",
+      "owner": "skill",
+      "expectedSchedule": "weekly Sunday (Daily V5 wrapper)",
+      "script": "scripts/cleanup-low-signal.js",
+      "wrapperStep": "cleanup-low-signal",
+      "notes": "Agregado al wrapper 2026-04-26. Degrada memorias con content<=12 chars (basura tipo 'coder\\n', 'writer\\n') a tier=cold, importance<=2, tag 'low_signal'. Solo afecta types decision/action/learning/note (preserva fact/gotcha que pueden ser legítimamente cortos)."
+    },
+    "lifecycle_management": {
+      "state": "active",
+      "owner": "skill",
+      "expectedSchedule": "midweek+sunday",
+      "script": "brainx lifecycle-run",
+      "wrapperStep": "lifecycle-run",
+      "notes": "Decay tier-based, stale cleanup, stats. Independiente del router."
+    },
+    "contradiction_detection": {
+      "state": "active",
+      "owner": "skill",
+      "expectedSchedule": "midweek+sunday",
+      "script": "scripts/contradiction-detector.js",
+      "wrapperStep": "contradiction-detector",
+      "notes": "Sigue siendo útil con router: si dos memorias contradictorias salen como candidates al router, el router elige solo una pero contradiction-detector marca/superseded en corpus."
+    },
+    "cross_agent_learning": {
+      "state": "active",
+      "owner": "skill+CLI",
+      "expectedSchedule": "daily",
+      "script": "scripts/cross-agent-learning.js",
+      "wrapperStep": "cross-agent-learning",
+      "notes": "Sigue útil. El router puede priorizar cross-agent memorias verified si el prompt lo justifica."
+    },
+    "memory_distillation": {
+      "state": "active",
+      "owner": "skill",
+      "expectedSchedule": "daily",
+      "script": "scripts/memory-distiller.js",
+      "wrapperStep": "memory-distiller",
+      "notes": "LLM extrae memorias de transcripts recientes. Captura, no afectada por router."
+    },
+    "session_harvester": {
+      "state": "active",
+      "owner": "skill",
+      "expectedSchedule": "daily",
+      "script": "scripts/session-harvester.js",
+      "wrapperStep": "session-harvester",
+      "notes": "Heurísticas extraen señal alta de session JSONLs. Captura."
+    },
+    "memory_bridge": {
+      "state": "active",
+      "owner": "skill",
+      "expectedSchedule": "daily",
+      "script": "scripts/memory-bridge.js",
+      "wrapperStep": "memory-bridge",
+      "notes": "Sync memory/*.md -> DB."
+    },
+    "context_pack_builder": {
+      "state": "active",
+      "owner": "skill",
+      "expectedSchedule": "daily",
+      "script": "scripts/context-pack-builder.js",
+      "wrapperStep": "context-pack-builder",
+      "notes": "Context packs por workspace. Alimenta wiki digest."
+    },
+    "error_harvester": {
+      "state": "active",
+      "owner": "skill",
+      "expectedSchedule": "daily",
+      "script": "scripts/error-harvester.js",
+      "wrapperStep": "error-harvester",
+      "notes": "Movido a daily 2026-04-14 (de weekly). Ventana 24h."
+    },
+    "reclassify_memories": {
+      "state": "active",
+      "owner": "skill",
+      "expectedSchedule": "daily",
+      "script": "scripts/reclassify-memories.js",
+      "wrapperStep": "reclassify-memories",
+      "notes": "Mantiene category coverage. Idempotent (short-circuits cuando OK)."
+    },
+    "degrade_over_injected": {
+      "state": "active",
+      "owner": "skill",
+      "expectedSchedule": "daily",
+      "script": "scripts/degrade-over-injected.js",
+      "wrapperStep": "degrade-over-injected",
+      "notes": "Degrada memorias inyectadas>=20x en 7d sin reference. Con router active hay menos over-injection (router selectivo) -> impacto reducido pero sigue útil. Threshold 20 puede revisarse cuando haya N>=30 fires del active mode."
+    },
+    "wiki_compile": {
+      "state": "active",
+      "owner": "skill",
+      "expectedSchedule": "daily",
+      "script": "./brainx wiki compile",
+      "wrapperStep": "wiki-compile",
+      "notes": "Recompila brainx-vault/. Alimenta wiki_digest surface."
+    },
+    "runtime_regression_suite": {
+      "state": "active",
+      "owner": "skill",
+      "expectedSchedule": "daily",
+      "script": "cron/brainx-regression-suite.sh",
+      "wrapperStep": "runtime-regression-suite",
+      "notes": "Valida invariantes runtime (denylist, cross-agent isolation, scoring). Verificado: NO testa los thresholds escalares específicos -- testa los filterRecallRows guards que SIGUEN activos."
+    },
+    "auto_promoter": {
+      "state": "active",
+      "owner": "skill",
+      "expectedSchedule": "weekly Sunday",
+      "script": "scripts/auto-promoter.js",
+      "wrapperStep": "auto-promoter",
+      "notes": "Genera sugerencias review-gated (--min-recurrence 6). El router puede beneficiarse cuando sugerencias se promueven a kb_* canonical."
+    },
+    "promotion_applier": {
+      "state": "active",
+      "owner": "skill",
+      "expectedSchedule": "weekly Sunday",
+      "script": "scripts/promotion-applier.js",
+      "wrapperStep": "promotion-applier",
+      "notes": "Destila sugerencias hacia canonical."
+    },
+    "memory_enforcer": {
+      "state": "active",
+      "owner": "skill",
+      "expectedSchedule": "weekly Sunday",
+      "script": "memory-enforcer-cron.sh",
+      "wrapperStep": "memory-enforcer",
+      "notes": "Verifica estructura de memoria en workspaces."
+    },
+    "memory_audit": {
+      "state": "active",
+      "owner": "skill",
+      "expectedSchedule": "weekly Sunday",
+      "script": "memory-audit-alert-cron.sh",
+      "wrapperStep": "memory-audit",
+      "notes": "Audita salud / anomalías. Reporta."
+    },
+    "memory_consolidation": {
+      "state": "active",
+      "owner": "skill",
+      "expectedSchedule": "weekly Sunday",
+      "script": "cron/weekly-semantic-consolidation.sh",
+      "wrapperStep": "memory-consolidation",
+      "notes": "Consolida memorias maduras y semánticamente cercanas."
+    },
+    "memory_daily_bootstrap": {
+      "state": "active",
+      "owner": "skill",
+      "expectedSchedule": "daily",
+      "script": "memory-daily-bootstrap-cron.sh",
+      "wrapperStep": "memory-daily-bootstrap",
+      "notes": "Crea memory/YYYY-MM-DD.md en workspaces."
+    },
+    "memory_daily_consolidate": {
+      "state": "active",
+      "owner": "skill",
+      "expectedSchedule": "daily 23:50 America/Port_of_Spain via BrainX Nightly Memory Loop",
+      "cron": "BrainX Nightly Memory Loop",
+      "script": "memory-daily-consolidate-cron.sh",
+      "notes": "Wrapper-first cross-workspace memory consolidation. Absorbed as the first step of BrainX Nightly Memory Loop."
+    },
+    "memory_daily_closeout": {
+      "state": "active",
+      "owner": "skill",
+      "expectedSchedule": "daily 23:50 America/Port_of_Spain via BrainX Nightly Memory Loop",
+      "cron": "BrainX Nightly Memory Loop",
+      "script": "memory-daily-closeout-cron.sh",
+      "notes": "Wrapper determinístico. Append compacto al memory/<hoy>.md si falta; devuelve already-present si ya existe. Absorbed as the second step of BrainX Nightly Memory Loop."
+    },
+    "knowledge_sync": {
+      "state": "active",
+      "owner": "skill",
+      "expectedSchedule": "every 7h",
+      "cron": "BrainX Review Loop",
+      "notes": "Sincroniza knowledge/*.md -> DB cuando hay cambios. Desde 2026-05-26 corre due-gated cada 7h dentro de BrainX Review Loop. NO_REPLY si no hay cambios."
+    },
+    "injection_health_24h": {
+      "state": "active",
+      "owner": "skill",
+      "expectedSchedule": "daily 07:30 America/Caracas",
+      "cron": "BrainX Maintenance",
+      "script": "brainx-injection-health.sh",
+      "notes": "Reporta hit-rate por surface con salida compacta. Desde 2026-05-26 corre dentro de BrainX Maintenance. DETAIL_LIMIT default 10; WARN_LIMIT default 5 para evitar timeout del agente alert. Desde 2026-04-29 finaliza selected rows stale como zero-reference telemetry y falla non-zero si quedan selected rows sin scoring después de la ventana."
+    },
+    "runtime_observability": {
+      "state": "active",
+      "owner": "plugin+skill",
+      "expectedSchedule": "runtime",
+      "notes": "brainx_runtime_injections + session_key + decision_summary.router con telemetría enriquecida del LLM router. brainx runtime-report CLI. handleLlmOutput/message_sent score referenced_count via keyword overlap, memory-id citations, and DB fallback by session_id/session_key."
+    },
+    "learning_details": {
+      "state": "dormant",
+      "owner": "skill",
+      "expectedSchedule": "off",
+      "script": "scripts/learning-detail-extractor.js",
+      "notes": "Last observed row: 2026-03-09. Schema y script existen pero la consolidación de tabla está paused. No bloquea router. Considerar consolidable con auto-distiller."
+    },
+    "live_capture": {
+      "state": "disabled",
+      "owner": "legacy hook / plugin-adjacent",
+      "expectedSchedule": "off",
+      "configKey": "captureOutboundMode",
+      "notes": "Telemetría histórica disponible. captureOutboundMode=off intencional. Plugin lo subsume cuando se activa."
+    },
+    "bootstrap_bridge": {
+      "state": "disabled",
+      "owner": "plugin",
+      "expectedSchedule": "off",
+      "configKey": "bootstrapMode",
+      "notes": "Pendiente refactor del legacy handler."
+    },
+    "eidos": {
+      "state": "dormant",
+      "owner": "skill",
+      "expectedSchedule": "off",
+      "notes": "Schema + CLI existen, sin cron ni runtime integration. 2 cycles totales en DB. Considerar archive si no se reactiva."
+    },
+    "pii_scrubbing": {
+      "state": "active",
+      "owner": "skill",
+      "expectedSchedule": "write-path",
+      "notes": "Default storage path keeps this enabled. Independiente del router (router no escribe, solo lee)."
+    },
+    "pattern_detection": {
+      "state": "active",
+      "owner": "skill",
+      "expectedSchedule": "Sunday (auto-promoter dependency)",
+      "script": "scripts/pattern-detector.js",
+      "notes": "291 patterns en DB, max recurrence 41. auto-promoter depende. No directamente scheduled como step propio; consume vía auto-promoter."
+    }
+  }
+}

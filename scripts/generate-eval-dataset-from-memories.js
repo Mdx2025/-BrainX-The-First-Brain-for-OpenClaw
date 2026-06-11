@@ -2,7 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const { Client } = require('pg');
-try { require('dotenv').config({ path: path.join(__dirname, '..', '.env') }); } catch (_) {}
+try { require('dotenv').config({ path: path.join(__dirname, '..', '.env'), override: true, quiet: true }); } catch (_) {}
 
 async function main() {
   const argv = process.argv.slice(2);

@@ -1,0 +1,47 @@
+---
+domain: development
+tags: [openclaw, vscode, gateway, extension, bridge, auth, remote]
+status: canonical
+importance: 10
+sensitivity: normal
+auto_query: "openclaw vscode extension gateway remote http bearer token bridge architecture"
+---
+# OpenClaw VS Code Gateway
+
+## Manual
+Fuente canonica para la arquitectura vigente de la extension VS Code de OpenClaw cuando habla con el gateway. Este archivo existe para evitar que retrieval mezcle decisiones actuales del VSIX con historial de bridges viejos o proyectos vecinos.
+
+## Regla de promocion
+- Promover aqui solo reglas vigentes y reusables del frente VSIX -> gateway.
+- No copiar aqui timelines de migracion, probes sinteticas ni errores ya resueltos que no dejan una regla durable.
+- Si cambia la arquitectura real, actualizar este topico y resincronizar `knowledge/`.
+
+## Reglas
+- La extension VS Code debe conectarse directamente al OpenClaw Gateway por HTTP remoto.
+- No debe depender de un bridge local para operar.
+- La autenticacion debe usar un Bearer token real del gateway.
+- Los endpoints HTTP esperados del gateway son `/v1/chat/completions` o `/v1/responses`, segun el frente y compatibilidad requerida.
+- `mdx-bridge` o `mdxspace.com/control/` no son la fuente de verdad para la arquitectura actual del VSIX; son contexto historico o de otro proyecto salvo que la tarea trate explicitamente de ese bridge.
+
+## Aplicacion practica
+- Si un prompt pregunta por la extension, VSIX, plugin VS Code, gateway HTTP remoto, Bearer token o eliminacion del bridge local, esta es la referencia correcta.
+- Si retrieval encuentra memorias viejas de bridge local junto con esta regla, debe prevalecer esta fuente canonica y descartarse el contexto viejo no aplicable.
+- Si hay evidencia viva de runtime, codigo o logs que contradiga este archivo, manda la evidencia viva y luego actualiza el canon.
+
+## No inyectar por defecto
+- Incidentes viejos ya cerrados si el prompt no habla de troubleshooting real.
+- Arquitecturas de bridge local de etapas anteriores.
+- Memorias de proyectos relacionados que solo coinciden por palabras como `gateway`, `bridge` o `control`.
+
+<!-- BRAINX:AUTO:START -->
+## BrainX Auto
+_Última sincronización: 2026-06-05T22:15:34.892Z_
+_Query: openclaw vscode extension gateway remote http bearer token bridge architecture_
+
+- [decision | imp:8 | ctx:project_registry:OpenClaw VS Code extension] Se decidió que la extensión VS Code no debe depender de un bridge local, sino conectarse directamente al OpenClaw Gateway usando su endpoint HTTP y un token Bearer real. - Se acordó rehacer el VSIX de la extensión para que use la URL remota del gateway y el token real, eliminando la dependencia del bridge local
+- [gotcha | imp:10 | ctx:openclaw:bugs] BUG RESUELTO 2026-04-28 20:09 -04: BrainX handoff no era obligatorio tras rotación de sesión OpenClaw. Síntoma: agentes como coder podían responder 'no tengo contexto' tras idle reset aunque existían reply context, snapshots y artefactos como /home/clawd/.openclaw/media/MDX_Email_Training_Manual_v5.docx. Causa raíz: bridge.ts solo disparaba snapshots por SESSION_CONTINUITY_RE/router; frases como 'Estábamos en esta tarea' caían en short y 'adjúntame el nuevo doc' podía quedar no-signal. Fix: /home/clawd/.openclaw/extensions/brainx/src/bridge.ts ahora tiene mandatory recovery preflight por has_reply_context, continuidad en español/inglés y referencias a doc/archivo; inyecta bloque corto con reply context, brainx_session_snapshots y brainx_artifact_ledger antes de permitir no-context. Artifact ledger lazy + schema/migration 012_artifact_ledger.sql captura rutas durables desde llm_output/tool_result. Validación: signal-gate tests 14/14, bridge tests 3/3, scope-intent tests 20/20, node --check bridge.ts, OpenClaw config valid, gateway RPC OK, Discord connected; simulación coder recuperó MDX_Email_Training_Manual_v5.docx desde snapshot.
+- [gotcha | imp:10 | ctx:openclaw:bugs] OpenClaw 2026.5.6 gotcha: gateway config watcher (server-reload-handlers-CNCGSeR3.js applySnapshot via diffConfigPaths) generates phantom 'env.X changed' deltas in compareConfig comparison even when process.env values are bit-identical and source files have identical md5. Root cause: compareConfig construction uses {...env} spread (io-DDcMg_WY.js:18667 envSnapshotForRestore) and re-load reconstruction differs from boot snapshot in non-content ways. Symptom that's easy to misdiagnose: every ~3 min '[reload] config change detected; evaluating reload (env.OPENAI_API_KEY, ...)' followed by '[reload] config change requires gateway restart' followed by SIGUSR1. Looks like external env mutator but no mutator exists — verified by inotifywait/poll md5sum 8min showing zero physical changes. The 3 OAuth/credential timers (claude-acp-token-sync, claude-credential-sync, gemini-oauth-refresh) all have 'if new == old: return changed=False' guards and are NOT the source. sync-openclaw-env.sh also has 'rendered != current.read_text()' guard. Fix: add {prefix:'env',kind:'none'} as first entry of BASE_RELOAD_RULES_TAIL in dist/config-reload-plan-DBZfWK-S.js (marker OPENCLAW_ENV_RELOAD_NOOP_20260507). Architecturally correct because process.env of Node is captured at boot from systemd EnvironmentFile= and cannot mutate during runtime — any 'env.X changed' reported by watcher in runtime is spurious by definition. Bug observed first 2026-05-07 with 49 restarts/day. Verified: with patch, 12+ min and 17+ min gateway uptime sin SIGUSR1, Discord channel status 'connected'. Cross-agent value: any agent investigating mysterious gateway restart loops or Discord 'awaiting gateway readiness' stuck patterns should check journalctl for '[reload] config change detected (env.X' and apply this patch instead of going down the rabbit hole of 'Discord plugin Carbon Client lifecycle bug' which can be just downstream symptom.
+- [gotcha | imp:10 | ctx:openclaw:bugs] BUG RESUELTO 2026-04-28 21:31 -04: coder/Kimi exposed OpenClaw runtime context and BrainX mandatory recovery preflight in Discord by echoing display=false custom_message entries. Root cause: sanitize-user-facing-text stripped internal delimited context but not modern 'OpenClaw runtime context for the immediately preceding user message' echoes or BrainX preflight echoes; BrainX snapshot wording also exposed status=blocked/92 turns. Fix: bridge.ts recovery snapshot lines now use user-safe 'prior handoff' wording and instruct silent use; patched dist/sanitize-user-facing-text-DgEphtot.js with stripReasoningAndRuntimeContextEcho to remove runtime context, BrainX preflight echoes, and stray think tags before channel delivery; archived/deleted poisoned coder session 7472d7fe. Validation: node --check OK for bridge/sanitizer/auditor; signal-gate 17/17; sanitizer simulations strip runtime-only and preflight-only echoes while preserving real answer after </think>; gateway RPC OK; Discord connected; audit reports 44 applied including runtime-context leak sanitizer.
+- [fact | imp:10 | ctx:project:openclaw] Handoff artifact for coder/openclaw: image at /home/clawd/.openclaw/media/hungry-tiger-1280x720.png. Relevant session notes: ✅ **Tunnel activo** 🔗 **https://made-pulling-assumption-talks.trycloudflare.com** El tunnel está corriendo. Si ves error 530, espera 10-20 segundos a que Cloudflare propague el DNS. levanta el link de nuevo 🔗 **https://underlying-protocols-beginner-theft.trycloudflare.com** Tunnel activo de nuevo. Si dá 530, esperar ~15 segundos a que propague. Errors: error TS6133: 'i' is declared but its value is never read.; error temporal de Cloudflare). El servidor local sigue corriendo en el puerto 3000. Voy a verific… Use this path as the durable artifact candidate when the user asks for the prior/final document or file. - Handoff summary for coder/openclaw: ✅ **Hungry Tiger — Build OK** - - TypeScript limpio, sin errores - - Tailwind CSS v4 con `@tailwindcss/postcss` configurado - - Preview capturado a 1280x720 - - Hero con "HUNGRY TIGER" en rojo intenso - - Secciones: Products (3 niveles de heat), Story, Heat Scale (barras animadas), Shop CTA
+- [fact | imp:10 | ctx:project:openclaw] Handoff summary for main/openclaw: OpenClaw media autostage live validation action-route 2026-05-05 13:22 AST: /home/clawd/openclaw-autostage-live-20260505.png Discord media/autostage live retest fixed 2026-05-05 13:25 AST /home/clawd/openclaw-autostage-live-20260505.png Bastantes bugs abiertos. Voy a priorizar los que matchean con nuestro setup (Discord, gateway restart, memory, exec, cron). Errors: error body, hiding provider error detail (e.g. Gemini 400) 2026-05-06T01:36:04Z; fail with -32001 (followup to #57969) 2026-05-05T22:12:50Z Blockers: 78264 OPEN [Bug]: Telegram replies may be duplicated after a gateway restart / auto-compaction retry. bug, bug:behavior 2026-05-06T04:22:12Z 78262 OPEN Feishu: topic session key mismatch — first messa; 78196 OPEN [Bug]: Extension plugins silently skipped by gateway loader in v5.3+ (loads in CLI process, not in long-running daemon) bug, regr… - Handoff artifact for main/openclaw: image at /home/clawd/openclaw-autostage-live-20260505 - Relevant session notes: OpenClaw media autostage live validation action-route 2026-05-05 13:22 AST: /home/clawd/openclaw-autostage-live-20260505 - Gemini 400) 2026-05-06T01:36:04Z; fail with -32001 (followup to #57969) 2026-05-05T22:12:50Z Blocker… Use this path as the durable artifact candidate when the user asks for the prior/final document or file
+<!-- BRAINX:AUTO:END -->

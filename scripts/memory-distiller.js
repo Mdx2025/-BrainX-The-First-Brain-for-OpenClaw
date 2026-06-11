@@ -14,11 +14,12 @@
  * Designed to run as cron every 4-8h.
  */
 
-require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
+require('dotenv').config({ path: require('path').join(__dirname, '..', '.env'), quiet: true });
 
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { isOpsAgent } = require('../lib/ops-agents');
 
 const AGENTS_DIR = path.join(process.env.HOME || '', '.openclaw', 'agents');
 const BRAINX_DIR = path.join(__dirname, '..');
@@ -28,6 +29,7 @@ const DEFAULT_MODEL = process.env.BRAINX_DISTILLER_MODEL || 'gpt-4.1-mini';
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const MAX_TRANSCRIPT_CHARS = 12000; // Per session chunk sent to LLM
 const MAX_MEMORIES_PER_SESSION = 15;
+const DEFAULT_LLM_TIMEOUT_MS = parseInt(process.env.BRAINX_DISTILLER_TIMEOUT_MS || '60000', 10);
 
 // ── Args ──────────────────────────────────────────────
 function parseArgs() {
@@ -40,6 +42,7 @@ function parseArgs() {
     else if (argv[i] === '--verbose') args.verbose = true;
     else if (argv[i] === '--model') args.model = argv[++i];
     else if (argv[i] === '--max-sessions') args.maxSessions = parseInt(argv[++i], 10);
+    else if (argv[i] === '--llm-timeout-ms') args.llmTimeoutMs = parseInt(argv[++i], 10);
   }
   return {
     hours: args.hours || 8,
@@ -48,6 +51,7 @@ function parseArgs() {
     verbose: args.verbose || false,
     model: args.model || DEFAULT_MODEL,
     maxSessions: args.maxSessions || 20,
+    llmTimeoutMs: Number.isFinite(args.llmTimeoutMs) ? args.llmTimeoutMs : DEFAULT_LLM_TIMEOUT_MS,
   };
 }
 
@@ -59,7 +63,7 @@ function findRecentSessions(hoursAgo, agentFilter) {
 
   const agents = fs.readdirSync(AGENTS_DIR).filter(d => {
     if (agentFilter) return d === agentFilter;
-    return !['heartbeat', 'monitor'].includes(d);
+    return !isOpsAgent(d);
   });
 
   for (const agent of agents) {
@@ -176,6 +180,7 @@ async function probeOpenAIAuth(model = DEFAULT_MODEL) {
   try {
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
+      signal: AbortSignal.timeout(DEFAULT_LLM_TIMEOUT_MS),
       headers: {
         'Authorization': `Bearer ${OPENAI_API_KEY}`,
         'Content-Type': 'application/json',
@@ -209,46 +214,32 @@ async function probeOpenAIAuth(model = DEFAULT_MODEL) {
   }
 }
 
-async function callLLM(transcript, model) {
-  if (!OPENAI_API_KEY) throw new Error('OPENAI_API_KEY required');
+async function callLLM(transcript, model, timeoutMs = DEFAULT_LLM_TIMEOUT_MS) {
+  // Routed through the OpenClaw gateway agent (brainx-reviewer / gpt-5.5 OAuth)
+  // instead of the OpenAI pay-per-token API. See lib/agent-llm.js.
+  const { callAgentLLM, extractJson } = require(path.join(BRAINX_DIR, 'lib', 'agent-llm'));
 
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${OPENAI_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: 'system', content: EXTRACTION_PROMPT },
-        { role: 'user', content: transcript },
-      ],
-      temperature: 0.1,
-      max_tokens: 4000,
-      response_format: { type: 'json_object' },
-    }),
+  const { text, usage } = await callAgentLLM({
+    system: EXTRACTION_PROMPT,
+    user: transcript,
+    timeoutMs,
+    label: 'distiller',
   });
 
-  if (!res.ok) {
-    const err = await res.text();
-    const code = res.status === 401 ? 'OPENAI_AUTH_401' : `OPENAI_HTTP_${res.status}`;
-    throw new Error(`${code}: ${err.slice(0, 300)}`);
-  }
-
-  const data = await res.json();
-  const content = data.choices?.[0]?.message?.content || '[]';
+  // Normalize agent usage (input/output) to the prompt/completion shape the
+  // summary accounting expects.
+  const normUsage = { prompt_tokens: usage.input || 0, completion_tokens: usage.output || 0 };
 
   try {
-    const parsed = JSON.parse(content);
+    const parsed = extractJson(text);
     // Handle both {memories: [...]} and [...] formats
     const memories = Array.isArray(parsed) ? parsed : (parsed.memories || parsed.facts || parsed.items || []);
     return {
       memories: memories.slice(0, MAX_MEMORIES_PER_SESSION),
-      usage: data.usage || {},
+      usage: normUsage,
     };
   } catch {
-    return { memories: [], usage: data.usage || {}, parseError: true };
+    return { memories: [], usage: normUsage, parseError: true };
   }
 }
 
@@ -317,6 +308,7 @@ async function main() {
   const distilledLog = getDistilledLog();
 
   const summary = {
+    ok: true,
     sessions: sessions.length,
     processed: 0,
     skipped: 0,
@@ -353,7 +345,7 @@ async function main() {
     try {
       process.stderr.write(`[distiller] [${summary.processed + 1}/${toProcess.length}] ${session.agent}/${session.sessionId} (${transcript.length} chars)...\n`);
 
-      const { memories, usage, parseError } = await callLLM(transcript, args.model);
+      const { memories, usage, parseError } = await callLLM(transcript, args.model, args.llmTimeoutMs);
 
       summary.tokensUsed.prompt += usage.prompt_tokens || 0;
       summary.tokensUsed.completion += usage.completion_tokens || 0;
@@ -405,6 +397,13 @@ async function main() {
   }
 
   if (!args.dryRun) saveDistilledLog(distilledLog);
+
+  if (summary.errors.length && summary.processed === 0) {
+    summary.ok = false;
+    process.exitCode = 2;
+  } else if (summary.errors.length) {
+    summary.ok = 'partial';
+  }
 
   console.log(JSON.stringify(summary, null, 2));
 }

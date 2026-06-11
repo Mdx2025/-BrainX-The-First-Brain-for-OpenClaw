@@ -1,9 +1,9 @@
 ---
-name: "BrainX V5 — The First Brain for OpenClaw"
+name: "BrainX V6 Runtime / V5 Skill"
 description: |
   Vector memory engine with PostgreSQL + pgvector + OpenAI embeddings.
   Stores, searches, and injects contextual memories into LLM prompts.
-  Includes auto-injection hook for OpenClaw and full backup/recovery system.
+  Uses the BrainX plugin as the primary runtime route, with legacy hooks kept review-gated.
 metadata:
   openclaw:
     emoji: "🧠"
@@ -11,30 +11,28 @@ metadata:
       bins: ["psql"]
       env: ["DATABASE_URL", "OPENAI_API_KEY"]
     primaryEnv: "DATABASE_URL"
-    hooks:
-      - name: brainx-auto-inject
-        event: agent:bootstrap
-        description: Auto-injects relevant memories at session start
 user-invocable: true
 ---
 
-# BrainX V5 — The First Brain for OpenClaw
+# BrainX V6 Runtime / V5 Skill
 
 Persistent memory system using vector embeddings for contextual retrieval in AI agents.
 
-## 37 Features
+## 44 Implemented Capabilities
+
+Treat this as a grouped capability map, not as 39 unrelated product bullets. In practice, these cluster into storage/retrieval, trust/governance, bootstrap/live capture, maintenance/ops, knowledge, and evaluation.
 
 | # | Feature | Description |
 |---|---------|-------------|
-| 1 | ✅ **Production** | Active on 32 agent profiles with centralized shared memory (2,400+ memories) |
-| 2 | 🧠 **Auto-Learning** | Learns on its own from every conversation without human intervention |
+| 1 | ✅ **Production** | Active on the shared host memory pool with centralized storage and retrieval across agents |
+| 2 | 🧠 **Auto-Learning** | Captures and curates memory automatically from conversations, with review gates where durable rule writes would be risky |
 | 3 | 💾 **Persistent Memory** | Remembers across sessions — PostgreSQL + pgvector |
 | 4 | 🤝 **Shared Memory** | All agents share the same knowledge pool |
-| 5 | 💉 **Automatic Briefing** | Personalized context injection at each agent startup |
+| 5 | 💉 **Runtime Briefing** | Plugin-governed recall and session context, enabled conservatively per runtime policy |
 | 6 | 🔎 **Semantic Search** | Searches by meaning, not exact keywords |
 | 7 | 🏷️ **Intelligent Classification** | Auto-typed: facts, decisions, learnings, gotchas, notes |
 | 8 | 📊 **Usage-Based Prioritization** | Hot/warm/cold tiers — automatic promote/degrade based on access |
-| 9 | 🤝 **Cross-Agent Learning** | Propagates important gotchas and learnings across all agents |
+| 9 | 🤝 **Cross-Agent Learning** | Propagates only verified operational gotchas, facts, and decisions across agents |
 | 10 | 🔄 **Anti-Duplicates** | Semantic deduplication by cosine similarity with intelligent merge |
 | 11 | ⚡ **Anti-Contradictions** | Detects contradictory memories and supersedes the obsolete one |
 | 12 | 📋 **Session Indexing** | Searches past conversations (30-day retention) |
@@ -49,7 +47,7 @@ Persistent memory system using vector embeddings for contextual retrieval in AI 
 | 21 | 🌀 **Memory Distillation** | Consolidates raw logs into higher-signal memories over time |
 | 22 | 🛡️ **Pre-Action Advisory** | Queries past mistakes before high-risk tool execution |
 | 23 | 👤 **Agent Profiles** | Per-agent hook injection: boosts/filters memories by agent role |
-| 24 | 🔀 **Cross-Agent Injection Slots** | Hook reserves 30% of context slots for other agents' memories |
+| 24 | 🔀 **Cross-Agent Recall** | Cross-agent knowledge is retrieved on demand when local-first context is insufficient |
 | 25 | 📊 **Metrics Dashboard** | CLI dashboard with top patterns, memory stats, and usage trends |
 | 26 | 🔧 **Doctor & Auto-Fix** | Schema integrity check + automatic repair of detected issues |
 | 27 | 👍 **Memory Feedback** | Mark memories as useful/useless/incorrect to refine quality |
@@ -61,8 +59,15 @@ Persistent memory system using vector embeddings for contextual retrieval in AI 
 | 33 | 🏗️ **Session Snapshots** | Captures full agent state at session close for analysis |
 | 34 | 🧹 **Low-Signal Cleanup** | Automatic cleanup of low-value, outdated, or redundant memories |
 | 35 | 🔃 **Memory Reclassification** | Reclassifies memories with correct types and categories post-hoc |
-| 36 | 🔄 **Auto-Promotion Pipeline** | Detects high-recurrence patterns and promotes them as rules in workspace files automatically |
-| 37 | 📊 **15-Step Daily Pipeline** | Consolidated daily pipeline: bootstrap, lifecycle, distiller, harvester, bridge, auto-distiller, consolidation, cross-agent, contradiction, md-harvester, error-harvester, auto-promoter, promotion-applier, memory-enforcer, audit |
+| 36 | 🔄 **Auto-Promotion Pipeline** | Detects high-recurrence patterns and stages vetted rule suggestions for the canonical `agent-core` reference file; final writes are review-gated instead of fully automatic |
+| 37 | 📊 **Hybrid Daily/Weekly Pipeline** | Current host runtime runs 15 daily steps, 2 Wednesday/Sunday steps, and 7 deeper Sunday-only maintenance steps |
+| 38 | ⚡ **Near-Real-Time Live Capture** | Optional capture surface with telemetry support, but not part of the default host runtime baseline |
+| 39 | 📡 **Live Capture Observability** | `doctor` and `metrics` expose live-capture volume, low-signal skips, duplicates, persistence failures, latency, and last success/error |
+| 40 | 🧠 **Session Working Memory Layer** | Plugin-owned short-lived session state with relevance-gated injection |
+| 41 | 🔁 **Handoff Promoter** | Promotes session snapshots into durable hot memories and finality-scored artifact ledger rows |
+| 42 | 📎 **Artifact Ledger** | Tracks durable final artifacts with role/provenance/finality for recovery after session rotation |
+| 43 | 🧭 **Semantic Recovery Preflight** | Router-assisted classifier detects continuation/context-loss intent beyond fixed regex phrases |
+| 44 | 🧭 **Context Broker Runtime** | Classifies intent/runtime family and selects one evidence surface per turn |
 
 ## When to Use
 
@@ -77,50 +82,140 @@ Persistent memory system using vector embeddings for contextual retrieval in AI 
 - Structured tabular data (use a regular DB)
 - Simple cache (use Redis or in-memory)
 
-## Auto-Injection (Hook)
+## Runtime Ownership
 
-BrainX V5 includes an **OpenClaw hook** that automatically injects relevant memories when an agent starts.
+BrainX V6 uses a split architecture:
+
+- `BrainX skill` = long-term memory, CLI, cron, knowledge sync, doctor
+- `brainx plugin` = primary runtime route inside OpenClaw; sole owner of `before_prompt_build` (prompt orchestration) as of 2026-05-29
+- legacy hooks = review-gated compatibility surface, not the default runtime path
+- `lossless-claw` = **absorbed as an internal BrainX capability** (no longer a separate plugin; `enabled:false` in openclaw.json). BrainX loads it in-process (`import lcmPlugin from "lossless-claw"` via node_modules symlink, kept external by esbuild) and calls `lcmPlugin.register()` through a shim (`src/lossless-bridge.ts`) that **structurally drops** its `before_prompt_build` (BrainX is the sole prompt orchestrator) and forwards capture + the `lcm_*` tools + the `lossless` command. Update-proof: not a text-patch. Use `lcm_*` only for exact wording of earlier turns in the SAME conversation; use BrainX recall for cross-session memory. Detail in `brainx.md` → "lossless-claw absorbido como feature interno" (marker `LOSSLESS_ABSORB_20260529`).
+
+### Bootstrap Trust Model
+
+Injected BrainX context is **advisory**. It is useful for recall, not for authority.
+
+- Memory helps with hypotheses, prior decisions, recurring gotchas, and faster orientation.
+- If memory conflicts with active code, runtime behavior, DB state, logs, tests, screenshots, or a direct user correction, **the live artifact wins**.
+- Do not claim `listo`, revert code, or switch a business-flow conclusion based only on MEMORY/BrainX/summaries/ARCHITECTURE/CHANGELOG when you can inspect the real system.
+- `learning` memories stay stored and searchable, but they are excluded from bootstrap auto-injection by default because they are the easiest class to overgeneralize.
+- Cross-agent knowledge is still available through explicit `brainx search` / `brainx inject` fallback.
+
+### Verification States
+
+Each memory can carry a trust state used by retrieval:
+
+- `verified` — highest trust
+- `hypothesis` — tentative
+- `changelog` — historical context only
+- `obsolete` — excluded
+
+`advisory` and retrieval now prefer `verified` memories and downgrade the rest accordingly.
 
 ### Production Validation Status
 
-Real validation completed on **2026-03-18**:
-- Global hook enabled in `~/.openclaw/openclaw.json`
-- Managed hook synced with `~/.openclaw/skills/brainx-v5/hook/` (handler.js re-synced)
-- Active physical database: `brainx_v5`
-- agent-profiles.json expanded from 10 to 32 profiles (all agents)
-- Cross-agent injection slots (30%) activated in production
-- 20 null embeddings regenerated + 17 duplicate pairs deduped via `brainx fix`
-- 2 pending migrations applied
-- Doctor: 18/18 passed, 0 warnings
-- Real bootstrap smoke test passed for 10 agents
-- Expected evidence confirmed:
-  - `<!-- BRAINX:START -->` block written into `MEMORY.md`
-  - `Updated:` timestamp present
-  - Fresh row recorded in `brainx_pilot_log`
+Real validation refreshed on **2026-05-26**:
+- Plugin `brainx` enabled in `~/.openclaw/openclaw.json`
+- Legacy hooks `brainx-auto-inject` + `brainx-live-capture` disabled in runtime config on this host
+- Active physical database: `brainx`
+- Runtime surfaces active globally: context broker, `wikiDigest`, `jitRecall`, `router_llm`, semantic recovery, `workingMemory`, `toolAdvisories`, and `captureToolFailures`
+- Context broker policy: generic semantic/domain recall is suppressed before `jitRecall` for all runtime families unless the turn needs recovery, explicit/historical/procedural/project-state memory, or troubleshooting evidence; suppressed decisions are logged in `brainx_policy_decisions` with `intent_gate:%` reasons
+- Artifact ledger v2: `artifact_role`, `provenance`, `finality_score`, `metadata`; `brainx_context_state` stores compact `agent + session_key` handoff state
+- Scheduler active directly through OpenClaw cron: 4 direct BrainX/Memory jobs. BrainX operational work is consolidated into `BrainX Review Loop` and `BrainX Maintenance`; Memory consolidate/closeout remain adjacent jobs.
+- Daily Core wrapper: 15 daily steps, 2 Wednesday/Sunday steps, 7 Sunday-only steps
+- Runtime bridges still off: `bootstrapMode=off`, `captureOutboundMode=off`
+- Codex/background scoring fallback: exact `NO_REPLY`/`HEARTBEAT_OK` does not clear selected-injection cache; typed `message_sent` is observed as scoring-only so delivery-mirror replies can close `recovery_preflight` telemetry without enabling broad live capture
+- `brainx fix` now also demotes carried-stale consolidated rows plus stale low-provenance memories before they can pollute `hot/warm`, and can close stale runtime scoring rows with `runtime-scoring-backlog`
+- `brainx doctor --full --json` remains the source of truth for runtime governance warnings/failures
+- CLI tests and smoke suite passed locally
+- Telemetry and database integrity remain available independently of whether runtime bridges are enabled
 
-If this validation becomes stale, rerun a bootstrap smoke test before assuming runtime is still healthy.
+For `/home/clawd`, also treat these as canonical:
+
+- `docs/RUNTIME_STATUS.md` for current human-readable runtime truth
+- `config/surface-policy.json` for machine-readable active/manual/dormant/disabled policy
+
+Current verification snapshot (2026-06-01):
+- `brainx health`: OK
+- `brainx doctor --json`: `42 passed`, `2 warnings`, `0 failures`
+- `brainx doctor --full --json`: `58 passed`, `2 warnings`, `0 failures`
+- Doctor warnings are `BrainX Wiki` (low-confidence ratio) and `Promotion suggestion drift`, both pre-existing and unrelated to recall; `Recall quality` is `ok` after the 2026-06-01 inject self-test / adaptive-baseline fix.
+- Plugin tests: `138/138 pass`
+- CLI skill tests: `46 pass`
+- Runtime regression suite: `25/25 pass`
+- `openclaw gateway call brainx.status`: confirms global plugin runtime and disabled bootstrap/outbound bridges
+
+If this validation becomes stale, rerun `./brainx doctor --full --json` before assuming runtime is still healthy.
 
 ### How it works:
 
-1. `agent:bootstrap` event → Hook fires automatically
-2. PostgreSQL query → Fetches hot/warm recent memories
-3. Generates file → Creates `BRAINX_CONTEXT.md` in the workspace
-4. Agent reads → File is loaded as initial context
+1. The skill stores and curates memories in PostgreSQL + pgvector
+2. The plugin reads BrainX for working memory / JIT recall / advisories when enabled in `openclaw.json`; on `/home/clawd`, those surfaces are currently enabled globally
+3. Agents use `brainx search`, `brainx inject`, and `brainx knowledge-locate` explicitly when they need durable context
+4. Legacy hook-generated files remain available only for troubleshooting or controlled rollouts
+
+### Before Changing BrainX
+
+BrainX changes are runtime-sensitive. Do not patch from the visible symptom alone.
+
+Preflight:
+- Read the plugin runtime first when prompt-time behavior is involved: `~/.openclaw/extensions/brainx/src/bridge.ts`, plus `router.ts`, `config.ts`, and `runtime-deps.ts` when the change touches routing, policy, config, or dependency loading.
+- Read the skill runtime dependencies before changing memory/state behavior: `~/.openclaw/skills/brainx/lib/working-memory.js`, `lib/db.js`, `lib/openai-rag.js`, `lib/advisory.js`, or `lib/brainx-phase2.js` as relevant.
+- If the symptom involves scheduled memory, handoff, wiki, cleanup, or promotion behavior, inspect `/home/clawd/.openclaw/workspace/scripts/brainx-daily-core-wrapper.sh`, `docs/CRON.md`, and the specific script named by the Daily Core step.
+- Confirm current host truth with `docs/RUNTIME_STATUS.md`, `config/surface-policy.json`, `brainx doctor --full --json`, and `HOME=/home/clawd openclaw gateway call brainx.status` before changing runtime assumptions.
+- Cross-check prior incidents and patterns with `brainx search --query "<symptom or surface>"`, `brainx runtime-report`, `brainx router-quality`, `brainx recall-health`, or `brainx explain` as appropriate. Treat memories as leads, not authority.
+
+Troubleshooting shortcuts:
+- For deep health checks, run `brainx doctor --json` or `brainx doctor --full --json`; use `brainx health` only as a quick DB/pgvector smoke.
+- If the issue is prompt-time runtime behavior or live memory injection, read `~/.openclaw/extensions/brainx/src/bridge.ts` first, then `~/.openclaw/skills/brainx/lib/working-memory.js` and `~/.openclaw/skills/brainx/lib/db.js`.
+- If the issue is scheduled memory, promotion, wiki, cleanup, or stale recall, inspect the relevant Daily Core or Review Loop wrapper before changing thresholds or data.
+- If memories look wrong, check guardrail output for quarantined memories, degraded memories, stale artifacts, recall noise, and weak handoffs before blaming embeddings or router prompts.
+- When an external URL, document, sheet, or repo note becomes a stable source of truth, promote it to a durable `reference` memory or canonical knowledge doc instead of leaving it buried in chat history.
+
+Regression gates:
+- Runtime load path: `~/.openclaw/extensions/brainx/package.json` declares `runtimeExtensions: ["./dist/index.js"]`. Before claiming a plugin source change is live, verify whether OpenClaw is loading `index.ts` or `dist/index.js`; keep source, runtime bundle, and tests in sync or explicitly document why only one path changed.
+- Config changes: keep `src/config.ts`, `openclaw.plugin.json`, `~/.openclaw/openclaw.json`, `config/surface-policy.json`, and `docs/CONFIG.md` aligned. Validate unknown-property behavior because the plugin schema uses `additionalProperties: false`.
+- DB/schema changes: add an idempotent migration under `sql/migrations/`, update `docs/SCHEMA.md`, and extend `doctor`/`fix` checks when the invariant can drift. Avoid destructive hot changes; write rollback/restore notes before touching production data.
+- Prompt-time behavior: preserve the current `before_prompt_build` budget in both source and runtime bundle, single-flight guard, router timeout fail-closed behavior, per-turn budget, ops-agent denylist, ACP quiet policy, active-scope filtering, and session-rotation recovery.
+- Telemetry: changes to selection, scoring, policy, or delivery must leave `brainx_runtime_injections`, `brainx_policy_decisions`, `brainx_session_rotation_events`, `brainx explain`, `runtime-report`, `router-quality`, and `recall-health` meaningful; verify selected rows get scored or deliberately finalized.
+- Privacy and user-facing safety: keep PII/secret scrubbing, sensitivity recalibration, recovery-preflight wording, and delivery sanitization intact. Never expose internal labels, runtime context, credentials, raw session envelopes, or restricted memories.
+- Tests must include negative cases, not only happy paths: unrelated memories rejected, ops agents quiet, ACP generic recall suppressed, session rotation recovers only meaningful prompts, weak artifacts demoted, and cross-agent recall governed by the active config. If tag/verification gates are enabled, test them directly; if they are disabled on this host, test router/context-broker/scope guards instead.
+- Documentation and ledgers: if behavior changes, update the relevant docs (`README.md`, `CHANGELOG.md`, `docs/RUNTIME_STATUS.md`, `docs/CRON.md`, `docs/TESTS.md`, `brainx.md`) and add an Event Ledger row for validated architecture/runtime changes.
+
+Validation:
+- For edited JS/TS/MJS files, run `node --check <file>` when the file type/runtime supports it.
+- If the plugin changed, run `npm test` with workdir `/home/clawd/.openclaw/extensions/brainx`.
+- If skill CLI/libs/scripts changed, run `npm test` and `npm run test:smoke` with workdir `/home/clawd/.openclaw/skills/brainx` when DB/env are available.
+- If runtime behavior, OpenClaw config, Daily Core, recovery, policy, telemetry, or plugin bundle/load path changed, also run `/home/clawd/.openclaw/workspace/scripts/brainx-regression-suite.sh` and the relevant OpenClaw checks (`openclaw config validate --json`, health/status smoke, gateway `brainx.status`, journal loaded-line check, or cron wrapper dry-run where available).
+- If a runtime change requires gateway reload, restart only after tests/config validation, then confirm `openclaw health --json`, `openclaw tasks audit --json`, and a targeted smoke that exercises the changed surface without delivering public noise.
+- If the work fixes an OpenClaw/runtime/tool/integration incident, record it in BrainX bugs with exact date, OpenClaw version, files changed, validation, status, and rollback/workaround.
+
+### Canonical layout:
+
+- Stable guide: `~/.openclaw/skills/brainx/brainx.md`
+- Runtime context: plugin-owned working memory + recall inside OpenClaw
+- Durable manual knowledge: `~/.openclaw/skills/brainx/knowledge/`
+- Source of truth doc: `docs/CANONICAL_LAYOUT.md`
 
 ### Configuration:
 
 In `~/.openclaw/openclaw.json`:
 ```json
 {
-  "hooks": {
-    "internal": {
-      "enabled": true,
-      "entries": {
-        "brainx-auto-inject": {
-          "enabled": true,
-          "limit": 5,
-          "tier": "hot+warm",
-          "minImportance": 5
+  "plugins": {
+    "entries": {
+      "brainx": {
+        "enabled": true,
+        "config": {
+          "wikiDigest": true,
+          "jitRecall": true,
+          "workingMemory": true,
+          "toolAdvisories": true,
+          "captureToolFailures": true,
+          "writeFailuresToDailyMemory": true,
+          "writeFailuresToBrainx": true,
+          "bootstrapMode": "off",
+          "captureOutboundMode": "off"
         }
       }
     }
@@ -136,8 +231,9 @@ Add to `AGENTS.md` in each workspace:
 
 1. Read `SOUL.md`
 2. Read `USER.md`
-3. Read `brainx.md`
-4. Read `BRAINX_CONTEXT.md` ← Auto-injected context
+3. Read `~/.openclaw/skills/brainx/brainx.md`
+4. Use `brainx search` / `brainx inject` on demand
+5. Read legacy `BRAINX_CONTEXT.md` or `brainx-topics/*.md` only for troubleshooting
 ```
 
 ## Available Tools
@@ -228,7 +324,7 @@ brainx health
 ./scripts/backup-brainx.sh ~/backups
 ```
 
-Creates `brainx-v5_backup_YYYYMMDD_HHMMSS.tar.gz` containing:
+Creates `brainx_backup_YYYYMMDD_HHMMSS.tar.gz` containing:
 - Full PostgreSQL database (SQL dump)
 - OpenClaw configuration (hooks, .env)
 - Skill files
@@ -259,7 +355,7 @@ See [RESILIENCE.md](RESILIENCE.md) for:
 
 ```bash
 # Required
-DATABASE_URL=postgresql://user:pass@host:5432/brainx_v5
+DATABASE_URL=postgresql://user:pass@host:5432/brainx
 OPENAI_API_KEY=sk-...
 
 # Optional
@@ -273,10 +369,10 @@ BRAINX_INJECT_MAX_LINES_PER_ITEM=80
 ### Database Setup
 
 ```bash
-# Schema is in ~/.openclaw/skills/brainx-v5/sql/
+# Schema is in ~/.openclaw/skills/brainx/sql/
 # Requires PostgreSQL with pgvector extension
 
-psql $DATABASE_URL -f ~/.openclaw/skills/brainx-v5/sql/v3-schema.sql
+psql $DATABASE_URL -f ~/.openclaw/skills/brainx/sql/v3-schema.sql
 ```
 
 ## Direct Integration
@@ -284,59 +380,96 @@ psql $DATABASE_URL -f ~/.openclaw/skills/brainx-v5/sql/v3-schema.sql
 You can also use the unified wrapper that reads the API key from OpenClaw:
 
 ```bash
-cd ~/.openclaw/skills/brainx-v5
+cd ~/.openclaw/skills/brainx
 ./brainx add --type note --content "test"
 ./brainx search --query "test"
 ./brainx inject --query "test"
 ./brainx health
 ```
 
-Compatibility: `./brainx-v5` and `./brainx-v5-cli` also work as aliases for the main wrapper.
+Compatibility: `./brainx` and `./brainx-cli` also work as aliases for the main wrapper.
 
 ## Advisory System (Pre-Action Check)
 
 BrainX includes an advisory system that queries relevant memories, trajectories, and recurring patterns before executing high-risk tools. Helps agents avoid repeating past mistakes.
 
+On `/home/clawd`, `toolAdvisories=true` in the plugin runtime. It is still silent-by-default: only whitelisted high-risk tools trigger advisory lookup, and blocking approval is controlled by `advisoryRequireApproval`.
+
 ### High-Risk Tools
 
-The following tools automatically trigger advisory checks: `exec`, `deploy`, `railway`, `delete`, `rm`, `drop`, `git push`, `git force-push`, `migration`, `cron`, `message send`, `email send`.
+These are the intended advisory scope when the advisory surface is enabled or invoked manually: `exec`, `deploy`, `railway`, `delete`, `rm`, `drop`, `git push`, `git force-push`, `migration`, `cron`, `message send`, `email send`.
 
 ### CLI Usage
 
 ```bash
 # Check for advisories before a tool execution
-./brainx-v5 advisory --tool exec --args '{"command":"rm -rf /tmp/old"}' --agent coder --json
+./brainx advisory --tool exec --args '{"command":"rm -rf /tmp/old"}' --agent coder --json
 
 # Quick check via helper script
 ./scripts/advisory-check.sh exec '{"command":"rm -rf /tmp/old"}' coder
 ```
 
-### Agent Integration (Manual)
+### Agent Integration
 
-Since only `agent:bootstrap` is supported as a hook event, agents should manually call `brainx advisory` before high-risk tools:
+The plugin now listens to `before_tool_call` for whitelisted high-risk tools when `toolAdvisories=true`. Manual CLI checks remain useful for audits, scripts, or environments where the plugin runtime is not active:
 
 ```bash
 # In agent SKILL.md or AGENTS.md, add:
 # Before exec/deploy/delete/migration, run:
-cd ~/.openclaw/skills/brainx-v5 && ./scripts/advisory-check.sh <tool> '<args_json>' <agent>
+cd ~/.openclaw/skills/brainx && ./scripts/advisory-check.sh <tool> '<args_json>' <agent>
 ```
 
-The advisory returns relevant memories, similar past problem→solution paths, and recurring patterns with a confidence score. It's informational — never blocking.
+The advisory returns relevant memories, similar past problem→solution paths, and recurring patterns with a confidence score. In the current `/home/clawd` config it is informational unless `advisoryRequireApproval` is enabled.
 
-### Agent-Aware Hook Injection
+### Legacy Agent-Aware Hook Injection
 
-The `agent:bootstrap` hook uses **agent profiles** (`hook/agent-profiles.json`) to customize memory injection per agent:
+The legacy `agent:bootstrap` hook can use **agent profiles** (`hook/agent-profiles.json`) to customize memory injection per agent during controlled rollouts:
 
-- **coder**: Boosts gotcha/error/learning memories; filters by infrastructure/code/deploy/github contexts; excludes notes
-- **writer**: Boosts decision/learning; filters by content/seo/marketing; excludes errors
-- **monitor**: Boosts gotcha/error; filters by infrastructure/health/monitoring
-- **echo**: No filtering (default behavior)
+- **Execution agents** (`coder`, CLI agents, `raider`, `reasoning`): narrow bootstrap to code/ops-adjacent contexts and prioritize gotcha/error/decision
+- **Content agents** (`writer`, `researcher`, `clawma`, `karl`, `matrix`, etc.): prioritize fact/decision in content contexts
+- **Monitoring/support agents**: prioritize health/monitoring/operations errors and gotchas
+- **Default bootstrap policy**: exclude `learning` from auto-injection unless a profile opts in later for a proven reason
 
-Agents not listed in the profiles file get the default unfiltered injection. Edit `hook/agent-profiles.json` to add new agent profiles.
+Agents not listed in the profiles file get the default unfiltered injection when that legacy hook is enabled. On `/home/clawd`, plugin runtime is the default route and the legacy hook is disabled.
 
 ### Cross-Agent Memory Sharing
 
-The hook reserves ~30% of injection slots for **cross-agent memories**, ensuring each agent sees relevant learnings from other agents. The `cross-agent-learning.js` script tags high-importance memories for cross-agent visibility without creating duplicates.
+The hook now follows a **local-first bootstrap** policy for all agents. Cross-agent memories stay available, but they are retrieved through explicit `brainx search` / `brainx inject` fallback when local context is insufficient. The `cross-agent-learning.js` script still tags high-importance memories so that fallback recall can surface them without duplicates.
+
+## Skill Load Tracking (Spec 2 — Background Review / Skill Load)
+
+BrainX records every skill the plugin bridge surfaces into a prompt build, plus the outcome the host agent eventually reports. This closes two gaps from the Hermes background-review comparison:
+
+1. **Gap 1 — "skill in play" was never recorded.** The `BrainxBridge.handleBeforePromptBuild` hook now detects catalog skill names (from `~/.openclaw/skills/`) in the prompt + system context and writes a row to `brainx_skill_loads` with `source='injection'`. Tracking is fire-and-forget, capped at 10 inserts per turn, and never blocks the prompt pipeline.
+2. **Gap 3 — no feedback loop for skills that turned out wrong.** The host agent (or operator) can stamp an outcome on the most recent load via `brainx skill-feedback <skill-name> <helpful|wrong|ignored> [--session <key>]`. The skill-promoter can then prefer patching skills with `outcome IN ('wrong', 'ignored')` over skills with `outcome='helpful'`.
+
+### Tables and modules
+
+| File | Purpose |
+|---|---|
+| `sql/migrations/018_brainx_skill_loads.sql` | New table `brainx_skill_loads` (id, session_key, skill_name, loaded_at, turn_index, source) + index on `(session_key, loaded_at DESC)`. |
+| `sql/migrations/019_brainx_skill_loads_outcome.sql` | Adds `outcome VARCHAR(20) CHECK (outcome IN ('helpful','wrong','ignored'))`. |
+| `lib/skill-tracker.js` | `trackSkillLoad`, `trackSkillLoadAsync`, `recordOutcome`, `getRecentLoads`, `getSkillStats`, `flushPending`. Fire-and-forget inserts (same pattern as `lib/cost-tracker.js`). |
+| `lib/skill-promoter.js` | Heuristic bonus-score helpers: `getSkillBonusScore(skillName)` (0..1 ratio of helpful vs total reported), `getTopSkills(limit=5)` (last 30d, helpful ratio, minimum sample size), `getSkillsToPatch(opts)` (skills with `outcome IN ('wrong','ignored')` in the last 7d). Read-only, no LLM cost, no side effects on ranking. |
+| `extensions/brainx/src/bridge.ts` | `detectAndTrackSkillLoads()` helper called at the top of `handleBeforePromptBuild` with `source='injection'`. Errors here are silent and never delay the prompt. |
+| `extensions/brainx/src/runtime-deps.ts` | `getSkillTracker()` / `getSkillPromoter()` lazy loaders that fall back to a warning if the modules are missing. |
+
+### CLI surface
+
+```
+brainx skill-feedback <skill-name> <helpful|wrong|ignored> [--session <session_key>] [--json]
+    Report outcome for the most recent load of <skill-name> in the current (or --session) session.
+    Looks up the latest brainx_skill_loads row for that skill and stamps its outcome column.
+
+brainx skill-stats <skill-name> [--json]
+    Outcome stats for a single skill: total loads, helpful / wrong / ignored counts, reported total.
+```
+
+The CLI lookup is forgiving: if no unrated row exists for the skill, it falls back to the most recent row (so an operator can override the latest record). When nothing matches it returns exit code 1 with a clear message — the bridge must record a load first.
+
+### Cron `review-loop` interval
+
+`openclaw.json` has a generic `cron` block (`maxConcurrentRuns`, `sessionRetention`, `runLog`) but no per-job `review-loop` interval knob. The Spec 2 gap #2 action item ("lower frequency to 10–15 min if currently ≥1h") requires a dedicated config field that doesn't exist in this host's openclaw.json. Documented here as N/A — the change is gated on a future config-schema addition.
 
 ## Security & Trust
 
@@ -347,7 +480,7 @@ This skill is flagged with "suspicious patterns" by ClawHub's automated scanner.
 | `child_process.execFile` | `hook/handler.js` | Invokes the BrainX CLI to query memories during agent bootstrap. No arbitrary command execution. |
 | `process.env` access | `lib/db.js`, `lib/openai-rag.js`, `lib/cli.js` | Reads `DATABASE_URL` and `OPENAI_API_KEY` to connect to PostgreSQL and generate embeddings. Standard for any database-backed skill. |
 | `fetch('https://api.openai.com')` | `lib/openai-rag.js` | Calls OpenAI Embeddings API to generate vector representations. Single endpoint, no other network calls. |
-| File read/write | `hook/handler.js` | Writes `BRAINX_CONTEXT.md` and updates `MEMORY.md` in the agent's workspace during bootstrap injection. |
+| File read/write | `hook/handler.js` | Legacy compatibility path that can write `BRAINX_CONTEXT.md`, `brainx-topics/*.md`, and update `MEMORY.md` during controlled bootstrap rollouts. |
 
 **No secrets are stored in code.** All credentials come from environment variables. No data leaves the system except embedding requests to OpenAI.
 
@@ -358,25 +491,34 @@ This skill is flagged with "suspicious patterns" by ClawHub's automated scanner.
 - `inject` is the most useful tool for giving context to LLMs
 - Tier hot = fast access, cold/archive = long-term storage
 - Memories are persistent in PostgreSQL (independent of OpenClaw)
-- Auto-injection hook fires on every `agent:bootstrap`
+- Plugin runtime is the default route on this host; legacy auto-injection hook is not the default runtime path
 
 ## Feature Status (Tables)
 
-### ✅ All Operational
+### Schema Presence and Runtime Caveat
+
+These tables existing in the DB does not imply every surface is active on this host. Use `docs/RUNTIME_STATUS.md` and `config/surface-policy.json` for live operational truth.
+
 | Table | Function | Status |
 |---|---|---|
-| `brainx_memories` | Core: stores memories with embeddings | ✅ Active (2,400+) |
+| `brainx_memories` | Core: stores memories with embeddings | ✅ Active (4,800+) |
+| `brainx_advisories` | Pre-action advisory history | ✅ Active runtime surface |
+| `brainx_distillation_log` | Distillation run audit log | ✅ Active |
+| `brainx_eidos_cycles` | Prediction/evaluation/distillation loop | Present; dormant on this host |
 | `brainx_query_log` | Tracks search/inject queries | ✅ Active |
 | `brainx_pilot_log` | Tracks auto-inject per agent | ✅ Active |
-| `brainx_context_packs` | Pre-generated context packages | ✅ Active |
+| `brainx_context_packs` | Pre-generated context packages | Maintenance artifact; not active runtime retrieval |
 | `brainx_patterns` | Detects recurring errors/issues | ✅ Active |
-| `brainx_session_snapshots` | Captures state at session close | ✅ Active |
-| `brainx_learning_details` | Extended metadata for learning/gotcha memories | ✅ Active |
-| `brainx_trajectories` | Records problem→solution paths | ✅ Active |
+| `brainx_schema_version` | Schema version tracking | ✅ Active |
+| `brainx_session_snapshots` | Captures state at session close | Present; manual/off |
+| `brainx_artifact_ledger` | Typed artifact recovery ledger | ✅ Active runtime surface |
+| `brainx_context_state` | Compact latest state by agent + session_key | ✅ Active runtime surface |
+| `brainx_learning_details` | Extended metadata for learning/gotcha memories | Present; dormant/off |
+| `brainx_trajectories` | Records problem→solution paths | Present; dormant/off |
 
-> 8/8 tables operational. Population scripts implemented 2026-03-06.
+> Schema presence is healthy; runtime activeness depends on the current host baseline and scheduler policy.
 
-## Full Feature Inventory (35)
+## Full CLI/Script Inventory
 
 ### CLI Core (`brainx <cmd>`)
 | # | Command | Function |
@@ -389,10 +531,13 @@ This skill is flagged with "suspicious patterns" by ClawHub's automated scanner.
 | 6 | `promote-candidates` | Detect memories eligible for promotion |
 | 7 | `lifecycle-run` | Degrade/promote memories by age/usage |
 | 8 | `metrics` | Metrics dashboard and top patterns |
-| 9 | `doctor` | Full diagnostics (schema, integrity, stats) |
+| 9 | `doctor` | Base diagnostics plus `doctor --full` for command surface and functional probes |
 | 10 | `fix` | Auto-repair issues detected by doctor |
 | 11 | `feedback` | Mark memory as useful/useless/incorrect |
 | 12 | `health` | PostgreSQL + pgvector connection status |
+| 13 | `recall-health` | Read-only recall quality warnings across runtime and query-log surfaces |
+| 14 | `skill-feedback` | Stamp `outcome` (`helpful` / `wrong` / `ignored`) on the most recent `brainx_skill_loads` row for a skill. Closes Spec 2 gap #3 (skills that turned out wrong/missing). |
+| 15 | `skill-stats` | Outcome stats for a single skill: total loads, helpful / wrong / ignored counts, reported total. |
 
 ### Processing Scripts (`scripts/`)
 | # | Script | Function |
@@ -406,7 +551,7 @@ This skill is flagged with "suspicious patterns" by ClawHub's automated scanner.
 | 19 | `trajectory-recorder.js` | Records problem→solution paths |
 | 20 | `fact-extractor.js` | Extracts facts from conversations |
 | 21 | `contradiction-detector.js` | Detects contradicting memories |
-| 22 | `cross-agent-learning.js` | Shares learnings between agents |
+| 22 | `cross-agent-learning.js` | Shares verified operational knowledge between agents |
 | 23 | `quality-scorer.js` | Scores memory quality |
 | 24 | `context-pack-builder.js` | Generates pre-built context packages |
 | 25 | `reclassify-memories.js` | Reclassifies memories with correct types/categories |
@@ -416,19 +561,27 @@ This skill is flagged with "suspicious patterns" by ClawHub's automated scanner.
 | 29 | `generate-eval-dataset-from-memories.js` | Generates evaluation dataset |
 | 30 | `memory-feedback.js` | Per-memory feedback system |
 | 31 | `import-workspace-memory-md.js` | Imports from workspace MEMORY.md files |
-| 32 | `migrate-v2-to-v3.js` | Schema migration V2→V3 |
-| 33 | `promotion-applier.js` | Last-mile auto-promotion: distills patterns via LLM and writes rules to workspace files |
+| 32 | `import-knowledge-md.js` | Imports curated `knowledge/` docs as canonical knowledge |
+| 33 | `knowledge-sync.js` | Detects manual changes in `knowledge/`, imports only when needed, and refreshes the auto block |
+| 34 | `new-knowledge-topic.js` | Creates canonical knowledge topic files with manual + auto blocks |
+| 35 | `sync-knowledge-auto-blocks.js` | Refreshes the auto-managed BrainX block inside knowledge docs |
+| 36 | `seed-knowledge-library.js` | Creates realistic seed topics across the knowledge taxonomy |
+| 37 | `migrate-v2-to-v3.js` | Schema migration V2→V3 |
+| 38 | `promotion-applier.js` | Last-mile gated promotion: distills vetted patterns and writes rules to the canonical `agent-core` reference file |
+| 39 | `calibrate-verification-state.js` | Conservatively promotes durable changelog memories to verified |
+| 40 | `cleanup-promotion-suggestions.js` | Purges stale, duplicate, or low-signal promotion suggestions |
+| 41 | `self-learning-audit.js` | Read-only autonomy report across injection uptake, stale memories, repeated failures, gaps, and low-recall query signals |
 
 ### Hooks and Infrastructure
 | # | Component | Function |
 |---|---|---|
-| 34 | `brainx-auto-inject` | Auto-injection hook at each agent bootstrap |
-| 35 | `backup-brainx.sh` | Full backup (DB + config + skills) |
-| 36 | `restore-brainx.sh` | Full restore from backup |
-| 37 | `promotion-applier.js` | Pipeline step 13: writes promoted patterns to workspace files |
+| 42 | `brainx-auto-inject` | Legacy bootstrap hook kept only for compatibility / controlled rollouts |
+| 43 | `backup-brainx.sh` | Full backup (DB + config + skills) |
+| 44 | `restore-brainx.sh` | Full restore from backup |
+| 45 | `promotion-applier.js` | Last-mile gated promotion script that writes promoted patterns to the canonical `agent-core` reference file behind review |
 
 ### V5 Metadata
-- `sourceKind` — Origin: user_explicit, agent_inference, tool_verified, llm_distilled, etc.
+- `sourceKind` — Origin: user_explicit, agent_inference, tool_verified, llm_distilled, knowledge_canonical, etc.
 - `sourcePath` — Source file/URL
 - `confidence` — Score 0-1
 - `expiresAt` — Automatic expiration

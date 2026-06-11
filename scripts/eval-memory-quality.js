@@ -2,6 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const rag = require('../lib/openai-rag');
+const db = require('../lib/db');
 
 function parseArgs(argv) {
   const out = { _: [] };
@@ -140,7 +141,11 @@ async function main() {
   console.log(`duplicates reduced (top-k by pattern collapse proxy): ${payload.metrics.duplicates_reduced}`);
 }
 
-main().catch((err) => {
-  console.error(err.stack || err.message || err);
-  process.exit(1);
-});
+main()
+  .catch((err) => {
+    console.error(err.stack || err.message || err);
+    process.exitCode = 1;
+  })
+  .finally(async () => {
+    await db.pool.end();
+  });

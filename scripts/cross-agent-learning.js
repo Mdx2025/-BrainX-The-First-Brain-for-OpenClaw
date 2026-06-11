@@ -59,15 +59,25 @@ async function main() {
     //    that don't already have the 'cross-agent' tag
     log(`Searching for shareable memories in last ${HOURS}h...`);
 
+    // Threshold rationale (2026-04-14):
+    //   - gotcha >=7: unchanged. Already meaningful at 7.
+    //   - decision/fact >=7: lowered from 8. Importance=8 was a near-empty
+    //     bucket in practice; 7 captures the mass of useful operational
+    //     facts (URLs, service maps, decisions) without polluting with noise.
+    //   - decision/fact still requires verification_state='verified'-level
+    //     trust via the existing verification filter.
     const candidates = await db.query(
       `SELECT id, type, content, agent, importance, tags
        FROM brainx_memories
        WHERE superseded_by IS NULL
          AND agent IS NOT NULL
          AND (
-           (type IN ('learning', 'gotcha') AND importance >= 7)
-           OR (type IN ('decision', 'fact') AND importance >= 8)
+           (type = 'gotcha' AND importance >= 7)
+           OR (type IN ('decision', 'fact') AND importance >= 7)
          )
+         AND COALESCE(verification_state, 'hypothesis') IN ('verified', 'hypothesis')
+         AND COALESCE(status, 'pending') NOT IN ('resolved', 'wont_fix')
+         AND (expires_at IS NULL OR expires_at > NOW())
          AND NOT ('cross-agent' = ANY(COALESCE(tags, '{}')))
          AND created_at > NOW() - make_interval(hours => $1)
        ORDER BY importance DESC, created_at DESC

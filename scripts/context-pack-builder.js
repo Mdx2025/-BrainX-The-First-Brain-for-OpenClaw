@@ -14,6 +14,7 @@
 
 const path = require('path');
 const fs   = require('fs');
+const crypto = require('crypto');
 
 // ── Bootstrap env + DB ────────────────────────────────────────────────
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
@@ -40,6 +41,10 @@ function truncate(str, max) {
 
 function log(...a) { if (VERB) console.error('[context-pack-builder]', ...a); }
 
+function packId(context) {
+  return `cp_${crypto.createHash('sha256').update(`${DAYS}:${context}`).digest('hex').slice(0, 16)}`;
+}
+
 // ── Main ──────────────────────────────────────────────────────────────
 async function main() {
   // 1. Fetch hot + warm memories from the last N days
@@ -48,6 +53,9 @@ async function main() {
     FROM brainx_memories
     WHERE superseded_by IS NULL
       AND tier IN ('hot', 'warm')
+      AND COALESCE(status, 'pending') NOT IN ('resolved', 'wont_fix')
+      AND (expires_at IS NULL OR expires_at > NOW())
+      AND COALESCE(verification_state, 'hypothesis') != 'obsolete'
       AND created_at > NOW() - $1::interval
     ORDER BY importance DESC, created_at DESC
   `, [`${DAYS} days`]);
@@ -148,10 +156,13 @@ async function main() {
 // ── Persistence: DB table ─────────────────────────────────────────────
 async function persistToTable(packs) {
   for (const p of packs) {
-    const id = `cp_${p.context.replace(/[^a-z0-9]/gi, '_')}_${Date.now()}`;
+    const id = packId(p.context);
     await db.query(`
       INSERT INTO brainx_context_packs (id, data, created_at, updated_at)
       VALUES ($1, $2, NOW(), NOW())
+      ON CONFLICT (id) DO UPDATE SET
+        data = EXCLUDED.data,
+        updated_at = NOW()
     `, [id, JSON.stringify(p)]);
   }
 }

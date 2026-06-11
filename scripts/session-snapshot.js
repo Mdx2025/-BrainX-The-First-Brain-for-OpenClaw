@@ -9,12 +9,32 @@
  *   node scripts/session-snapshot.js [--hours 6] [--max-sessions 10] [--verbose]
  */
 
-require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
+const argv = process.argv.slice(2);
+
+function printUsage() {
+  console.log(`Usage:
+  node scripts/session-snapshot.js [--hours 6] [--max-sessions 10] [--verbose]
+
+Options:
+  --hours <n>         Look back this many hours for recently modified sessions
+  --max-sessions <n>  Process at most this many sessions
+  --verbose           Print progress to stderr
+  -h, --help          Show this help message
+`);
+}
+
+if (argv.includes('--help') || argv.includes('-h')) {
+  printUsage();
+  process.exit(0);
+}
+
+require('dotenv').config({ path: require('path').join(__dirname, '..', '.env'), quiet: true });
 
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { Pool } = require('pg');
+const { isOpsAgent } = require('../lib/ops-agents');
 
 const AGENTS_DIR = path.join(process.env.HOME || '', '.openclaw', 'agents');
 const DATA_DIR = path.join(__dirname, '..', 'data');
@@ -30,7 +50,6 @@ const pool = new Pool({ connectionString: DATABASE_URL });
 
 // --- CLI args ---
 function parseArgs() {
-  const argv = process.argv.slice(2);
   const args = { hours: 6, maxSessions: 10, verbose: false };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--hours') args.hours = parseInt(argv[++i], 10) || 6;
@@ -80,7 +99,7 @@ function findRecentSessions(hoursAgo, maxSessions) {
   if (!fs.existsSync(AGENTS_DIR)) return sessions;
 
   for (const agent of fs.readdirSync(AGENTS_DIR)) {
-    if (['heartbeat', 'monitor'].includes(agent)) continue;
+    if (isOpsAgent(agent)) continue;
     const sessDir = path.join(AGENTS_DIR, agent, 'sessions');
     if (!fs.existsSync(sessDir)) continue;
     for (const f of fs.readdirSync(sessDir).filter(f => f.endsWith('.jsonl'))) {
@@ -109,6 +128,7 @@ function parseSession(filePath) {
     pendingItems: [],
     assistantTexts: [],
     userTexts: [],
+    directives: [],
   };
 
   for (const line of lines) {
@@ -135,12 +155,35 @@ function parseSession(filePath) {
           info.assistantTexts.push(text);
         } else if (role === 'user') {
           info.userTexts.push(text);
+          // Capture decisive task directives (imperative orders) so post-rotation
+          // recovery snapshots carry "what we were told to do", not just prose.
+          // Mirrors the Tier-A imperative signal used by the ACP handoff scorer.
+          if (text.length >= 8 && text.length < 600 && /(oculta|ocultar|muestra|mostrar|agrega|agregar|a[ñn]ad|elimina|eliminar|quita|quitar|borra|borrar|mueve|mover|cambia|cambiar|reemplaza|reemplazar|ajusta|ajustar|arregla|arreglar|corrige|corregir|implementa|implementar|crea\b|crear|revert|revierte|revertir|deploy|despliega|sube\b|subir|haz\b|pon\b|usa\b|deja\b|hide\b|show\b|add\b|remove\b|move\b|change\b|fix\b|build\b)/i.test(text)) {
+            info.directives.push(text.replace(/\s+/g, ' ').trim().slice(0, 200));
+          }
         }
 
-        // Extract file paths
-        const filePaths = text.match(/\/[\w./-]+\.\w{1,10}/g) || [];
-        for (const fp of filePaths) {
+        // Extract file paths (FIX_20260426: previous regex captured URLs like
+        // `//127.0.0.1`, `//github.com/foo.git`, `//mintlify.com`, plus path
+        // fragments inside URLs like `/Mdx2025/mdx-space.git` from a github
+        // URL. Multi-layer filter:
+        //   1. Regex: lookbehind no `/`, no `://` directly. Body allows `/`.
+        //      Extension must START with a letter (rejects IPs `.0.0.1`,
+        //      version tags `.1.2.3`).
+        //   2. Reject match preceded (within 30 chars) by `://` — kills the
+        //      `https://github.com/Mdx2025/mdx-space.git` case where regex
+        //      catches `/Mdx2025/mdx-space.git` after the host.
+        //   3. Reject single-segment matches (less than 2 `/`s) — those are
+        //      typically host names that lost their protocol.
+        const filePathMatches = [...text.matchAll(/(?<![\/])\/(?!\/)[\w./-]+\.[a-zA-Z][\w]{0,9}/g)];
+        for (const m of filePathMatches) {
+          const fp = m[0];
           if (fp.includes('node_modules') || fp.length > 120) continue;
+          if ((fp.match(/\//g) || []).length < 2) continue;
+          const prefix = m.index !== undefined && m.index > 0
+            ? text.slice(Math.max(0, m.index - 30), m.index)
+            : '';
+          if (prefix.includes('://')) continue;
           info.files.add(fp);
         }
 
@@ -192,6 +235,12 @@ function detectProject(text) {
 function buildSummary(info, agent) {
   const parts = [];
   parts.push(`Agent ${agent} session with ${info.turnCount} turns.`);
+
+  // Front-load the most recent decisive directives so they survive the router's
+  // ~360-char snapshot cap — post-rotation recovery needs the orders first.
+  if (Array.isArray(info.directives) && info.directives.length > 0) {
+    parts.push(`Recent directives: ${info.directives.slice(-3).join(' | ')}`);
+  }
 
   // Use last few assistant texts as summary seed
   const relevant = info.assistantTexts
@@ -301,13 +350,43 @@ async function main() {
     try {
       const info = parseSession(sess.path);
 
-      // Skip very short sessions
-      if (info.turnCount < 2) {
+      // QUALITY FILTERS (added 2026-04-26): the captura layer must reject
+      // trivial sessions before they pollute brainx_session_snapshots. The
+      // recall side (router LLM) cannot recover from "everything looks the
+      // same" once the corpus is contaminated.
+      // Three independent gates, any one can reject:
+      //   1) Trivial turn count without compensating blocker/error signal.
+      //   2) Thin summary (<200 chars after build).
+      //   3) No state signal at all (no non-/tmp file, no blocker, no pending,
+      //      no error). A session that didn't touch real files and didn't get
+      //      blocked is operationally noise.
+      const meaningfulErrors = info.errors.filter(e => e && e.length >= 30);
+      const nonTmpFiles = [...info.files].filter(f => f && !f.startsWith('/tmp/') && !f.startsWith('/var/tmp/'));
+      const hasStateSignal = info.blockers.length > 0
+        || info.pendingItems.length > 0
+        || meaningfulErrors.length > 0
+        || nonTmpFiles.length > 0;
+
+      if (info.turnCount < 5 && info.blockers.length === 0 && meaningfulErrors.length === 0) {
+        if (args.verbose) process.stderr.write(`[${sess.agent}] ${sess.sessionId.slice(0, 8)}... skip:trivial_turns (${info.turnCount})\n`);
         result.skipped++;
         continue;
       }
 
       const summary = buildSummary(info, sess.agent);
+
+      if (summary.length < 200) {
+        if (args.verbose) process.stderr.write(`[${sess.agent}] ${sess.sessionId.slice(0, 8)}... skip:thin_summary (${summary.length} chars)\n`);
+        result.skipped++;
+        continue;
+      }
+
+      if (!hasStateSignal) {
+        if (args.verbose) process.stderr.write(`[${sess.agent}] ${sess.sessionId.slice(0, 8)}... skip:no_state_signal\n`);
+        result.skipped++;
+        continue;
+      }
+
       const status = detectStatus(info);
       const snapId = `snap_${Date.now()}_${crypto.createHash('sha256').update(trackKey).digest('hex').slice(0, 8)}`;
 
@@ -327,7 +406,9 @@ async function main() {
         status,
         pendingItems: info.pendingItems.slice(0, 10),
         blockers: info.blockers.slice(0, 5),
-        lastFileTouched: [...info.files].pop() || null,
+        // Prefer non-/tmp file (signal); fall back to last seen if none. Filters
+        // out PNGs in /tmp etc. that would otherwise become "last file touched".
+        lastFileTouched: (nonTmpFiles[nonTmpFiles.length - 1]) || ([...info.files].filter(Boolean).pop()) || null,
         lastError: info.errors[info.errors.length - 1] || null,
         keyUrls: [...info.urls].slice(0, 10),
         embedding,

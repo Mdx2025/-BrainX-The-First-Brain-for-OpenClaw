@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
+require('dotenv').config({ path: require('path').join(__dirname, '..', '.env'), quiet: true });
 
 const db = require('../lib/db');
 
@@ -18,8 +18,9 @@ async function main() {
       WHERE superseded_by IS NULL
         AND length(coalesce(content,'')) <= $1
         AND type IN ('decision','action','learning','note')
+        AND (tier IS DISTINCT FROM $2 OR importance > $3 OR NOT (COALESCE(tags, ARRAY[]::text[]) @> ARRAY['low_signal']))
       `,
-      [maxLen]
+      [maxLen, newTier, maxImportance]
     );
     console.log(
       JSON.stringify(
@@ -37,12 +38,13 @@ async function main() {
     SET tier = $1,
         importance = LEAST(importance, $2),
         tags = CASE
-          WHEN NOT (tags @> ARRAY['low_signal']) THEN tags || ARRAY['low_signal']
+          WHEN NOT (COALESCE(tags, ARRAY[]::text[]) @> ARRAY['low_signal']) THEN COALESCE(tags, ARRAY[]::text[]) || ARRAY['low_signal']
           ELSE tags
         END
     WHERE superseded_by IS NULL
       AND length(coalesce(content,'')) <= $3
       AND type IN ('decision','action','learning','note')
+      AND (tier IS DISTINCT FROM $1 OR importance > $2 OR NOT (COALESCE(tags, ARRAY[]::text[]) @> ARRAY['low_signal']))
     `,
     [newTier, maxImportance, maxLen]
   );

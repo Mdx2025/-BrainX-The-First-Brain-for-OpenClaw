@@ -4,12 +4,13 @@
 
 set -euo pipefail
 
-ROOT="/home/clawd/.openclaw/skills/brainx-v5"
+ROOT="/home/clawd/.openclaw/skills/brainx"
 LOG_FILE="$ROOT/cron/health.log"
 LOCK_FILE="/tmp/brainx-health-check.lock"
 
 load_env() {
-  for env_file in "$ROOT/.env" "/home/clawd/.openclaw/.env" "/home/clawd/.env"; do
+  # Load least-specific first, most-specific last so skill .env wins on conflicts.
+  for env_file in "/home/clawd/.env" "/home/clawd/.openclaw/.env" "$ROOT/.env"; do
     if [ -f "$env_file" ]; then
       set -a
       # shellcheck disable=SC1090
@@ -21,7 +22,7 @@ load_env() {
 }
 
 detect_cli() {
-  for candidate in "$ROOT/brainx" "$ROOT/brainx-v5" "$ROOT/brainx-v5-cli"; do
+  for candidate in "$ROOT/brainx" "$ROOT/brainx" "$ROOT/brainx-cli"; do
     if [ -x "$candidate" ]; then
       echo "$candidate"
       return 0
@@ -50,7 +51,7 @@ trap 'rm -f "$LOCK_FILE" "$TMP_OUT"' EXIT
 load_env
 
 if ! BRAINX_CLI="$(detect_cli)"; then
-  log "ERROR: BrainX CLI not found (checked: brainx, brainx-v5, brainx-v5-cli)"
+  log "ERROR: BrainX CLI not found (checked: brainx, brainx, brainx-cli)"
   exit 1
 fi
 

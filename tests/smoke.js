@@ -1,4 +1,4 @@
-// BrainX V5 smoke test
+// BrainX smoke test
 
 const db = require('../lib/db');
 
@@ -18,12 +18,12 @@ const db = require('../lib/db');
     if (!hasVector) throw new Error('pgvector extension not installed in this database');
     if (nTables < 3) throw new Error(`schema not installed (found ${nTables} brainx_* tables)`);
 
-    console.log('BrainX V5 health: OK');
+    console.log('BrainX health: OK');
     console.log(`- pgvector: ${hasVector ? 'yes' : 'no'}`);
     console.log(`- brainx tables: ${nTables}`);
     process.exit(0);
   } catch (err) {
-    console.error('BrainX V5 health: FAIL');
+    console.error('BrainX health: FAIL');
     console.error(err?.message || err);
     process.exit(1);
   }

@@ -5,12 +5,14 @@
  * Provides feedback loop for memory quality:
  *   --useful    → increment access_count, importance +1 (max 10), feedback_score +1
  *   --useless   → importance -1 (min 1), feedback_score -1
- *   --incorrect → mark as superseded (soft delete)
+ *   --incorrect → mark as obsolete + superseded
+ *   --doubtful  → lower trust without deleting the memory
  *
  * Usage:
  *   node scripts/memory-feedback.js --id <memory_id> --useful
  *   node scripts/memory-feedback.js --id <memory_id> --useless
  *   node scripts/memory-feedback.js --id <memory_id> --incorrect
+ *   node scripts/memory-feedback.js --id <memory_id> --doubtful
  */
 
 'use strict';
@@ -41,10 +43,11 @@ async function main() {
   const isUseful = flag('useful');
   const isUseless = flag('useless');
   const isIncorrect = flag('incorrect');
+  const isDoubtful = flag('doubtful');
 
-  const actionCount = [isUseful, isUseless, isIncorrect].filter(Boolean).length;
+  const actionCount = [isUseful, isUseless, isIncorrect, isDoubtful].filter(Boolean).length;
   if (actionCount !== 1) {
-    console.error('Error: exactly one of --useful, --useless, or --incorrect is required');
+    console.error('Error: exactly one of --useful, --useless, --incorrect, or --doubtful is required');
     process.exitCode = 1;
     return;
   }
@@ -76,9 +79,16 @@ async function main() {
          SET access_count = COALESCE(access_count, 0) + 1,
              importance = LEAST(COALESCE(importance, 5) + 1, 10),
              feedback_score = COALESCE(feedback_score, 0) + 1,
+             verification_state = CASE
+               WHEN COALESCE(verification_state, 'hypothesis') = 'hypothesis'
+                    AND COALESCE(confidence_score, 0.7) >= 0.85
+                    AND type IN ('fact', 'decision', 'gotcha')
+                 THEN 'verified'
+               ELSE verification_state
+             END,
              last_accessed = NOW()
          WHERE id = $1
-         RETURNING id, importance, access_count, feedback_score`,
+         RETURNING id, importance, access_count, feedback_score, verification_state`,
         [id]
       );
       console.log(JSON.stringify({
@@ -90,9 +100,13 @@ async function main() {
       result = await db.query(
         `UPDATE brainx_memories
          SET importance = GREATEST(COALESCE(importance, 5) - 1, 1),
-             feedback_score = COALESCE(feedback_score, 0) - 1
+             feedback_score = COALESCE(feedback_score, 0) - 1,
+             verification_state = CASE
+               WHEN COALESCE(verification_state, 'hypothesis') = 'verified' THEN 'hypothesis'
+               ELSE verification_state
+             END
          WHERE id = $1
-         RETURNING id, importance, access_count, feedback_score`,
+         RETURNING id, importance, access_count, feedback_score, verification_state`,
         [id]
       );
       console.log(JSON.stringify({
@@ -100,14 +114,32 @@ async function main() {
         action: 'useless',
         memory: result.rows[0]
       }));
-    } else if (isIncorrect) {
+    } else if (isDoubtful) {
       // Mark as superseded by setting superseded_by to a sentinel value
       result = await db.query(
         `UPDATE brainx_memories
-         SET superseded_by = 'feedback:incorrect',
-             feedback_score = COALESCE(feedback_score, 0) - 5
+         SET importance = GREATEST(COALESCE(importance, 5) - 2, 1),
+             feedback_score = COALESCE(feedback_score, 0) - 3,
+             verification_state = 'hypothesis',
+             resolution_notes = CONCAT(COALESCE(resolution_notes || E'\n', ''), 'Marked doubtful via feedback at ', NOW()::text)
          WHERE id = $1
-         RETURNING id, superseded_by, feedback_score`,
+         RETURNING id, importance, feedback_score, verification_state`,
+        [id]
+      );
+      console.log(JSON.stringify({
+        ok: true,
+        action: 'doubtful',
+        memory: result.rows[0]
+      }));
+    } else if (isIncorrect) {
+      result = await db.query(
+        `UPDATE brainx_memories
+         SET superseded_by = 'feedback:incorrect',
+             feedback_score = COALESCE(feedback_score, 0) - 5,
+             verification_state = 'obsolete',
+             resolution_notes = CONCAT(COALESCE(resolution_notes || E'\n', ''), 'Marked incorrect via feedback at ', NOW()::text)
+         WHERE id = $1
+         RETURNING id, superseded_by, feedback_score, verification_state`,
         [id]
       );
       console.log(JSON.stringify({

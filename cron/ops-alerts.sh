@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-ROOT="/home/clawd/.openclaw/skills/brainx-v5"
+ROOT="/home/clawd/.openclaw/skills/brainx"
 cd "$ROOT"
 
 load_env() {
@@ -17,7 +17,7 @@ load_env() {
 }
 
 detect_cli() {
-  for candidate in "$ROOT/brainx" "$ROOT/brainx-v5" "$ROOT/brainx-v5-cli"; do
+  for candidate in "$ROOT/brainx" "$ROOT/brainx" "$ROOT/brainx-cli"; do
     if [ -x "$candidate" ]; then
       echo "$candidate"
       return 0
@@ -29,7 +29,7 @@ detect_cli() {
 load_env
 
 if ! BRAINX_CLI="$(detect_cli)"; then
-  echo "ERROR: BrainX CLI not found (checked: brainx, brainx-v5, brainx-v5-cli)"
+  echo "ERROR: BrainX CLI not found (checked: brainx, brainx, brainx-cli)"
   exit 1
 fi
 

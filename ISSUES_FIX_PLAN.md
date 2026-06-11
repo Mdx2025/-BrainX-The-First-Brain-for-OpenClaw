@@ -1,53 +1,54 @@
-# Plan de Fixes para BrainX V5
+# BrainX V5 — Issues & Fixes Log
 
-## Issues a resolver:
+> Todos los issues resueltos en la release 0.4.0 (2026-04-05).
+> Para detalles completos de cada fix, ver [CHANGELOG.md](./CHANGELOG.md).
 
-### 1. Unificar carga de dotenv (ESM vs CommonJS)
-Algunos scripts usan `require('dotenv')` en archivos que podrían ser ESM. Revisa todos los archivos en `scripts/` y `lib/` y unifica el patrón de carga de variables de entorno.
+## Estado: Todo resuelto
 
-Patrón correcto a usar:
-```javascript
-// Para CommonJS
-require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
+| # | Issue | Severidad | Estado |
+|---|-------|-----------|--------|
+| 1 | Dotenv sin path explícito en 2 scripts | Baja | Resuelto |
+| 2 | Modelo hardcodeado en memory-distiller | Baja | Ya estaba resuelto |
+| 3 | Rate limiting en OpenAI embed() | Media | Ya estaba resuelto |
+| 4 | Tests unitarios faltantes | Baja | Ya existían |
+| 5 | Reintentos en hook/handler.js | Media | Ya estaba resuelto |
+| 6 | Cross-agent learning roto (99.6% rechazo) | **Crítica** | Resuelto en 0.4.0 |
+| 7 | Auto-promotion atascado (0 candidatos) | **Alta** | Resuelto en 0.4.0 |
+| 8 | 33 agent profiles idénticos | **Alta** | Resuelto en 0.4.0 |
+| 9 | Memorias resueltas/expiradas inyectadas | **Crítica** | Resuelto en 0.4.0 |
+| 10 | Filtros de seguridad inconsistentes (auditoría) | **Crítica** | Resuelto en 0.4.0 |
+| 11 | Pipeline de 16 pasos redundante | Media | Reestructurado en 0.4.0 |
+| 12 | 5 features sin documentación en brainx.md | Baja | Documentado en 0.4.0 |
+| 13 | 4 agentes sin perfil (claude, codex, gemini, kimi) | Baja | Agregados en 0.4.0 |
 
-// Para ESM (hook/)
-import 'dotenv/config';
-// o
-import dotenv from 'dotenv';
-dotenv.config({ path: new URL('../.env', import.meta.url).pathname });
+## Filtros de seguridad estándar
+
+Toda query que sirve memorias a agentes DEBE incluir los 4 filtros:
+
+```sql
+AND superseded_by IS NULL
+AND COALESCE(status, 'pending') NOT IN ('resolved', 'wont_fix')
+AND (expires_at IS NULL OR expires_at > NOW())
+AND COALESCE(verification_state, 'hypothesis') != 'obsolete'
 ```
 
-### 2. Hardcodeo de modelo en memory-distiller.js
-El script `scripts/memory-distiller.js` tiene hardcodeado `gpt-4.1-mini`. Cambiar para usar env var `BRAINX_DISTILLER_MODEL` con fallback al valor actual.
+**Archivos que cumplen (verificado 2026-04-05):**
+- `hook/handler.js` — queryTopMemories, queryAgentMemories, queryByType, queryFacts, queryScopedMemories
+- `lib/openai-rag.js` — search()
+- `lib/advisory.js` — queryTrajectories (sin expires_at, tabla no tiene), queryPatterns (filtros en JOIN)
+- `lib/cli.js` — cmdFacts, cmdFeatures
+- `scripts/context-pack-builder.js` — fetch principal
+- `scripts/cross-agent-learning.js` — candidatos
 
-Línea a cambiar:
-```javascript
-const DEFAULT_MODEL = process.env.BRAINX_DISTILLER_MODEL || 'gpt-4.1-mini';
-```
+## Pipeline reestructurado (v0.4.0, actualizado 2026-04-28)
 
-### 3. Agregar rate limiting en llamadas OpenAI
-En `lib/openai-rag.js`, la función `embed()` hace llamadas directas sin rate limiting. Agregar:
-- Exponential backoff para errores 429
-- Retry con máximo 3 intentos
-- Delay entre llamadas si es necesario
+**Diario: 13 pasos**
+1. bootstrap → memory-distiller → session-harvester → handoff-promoter → memory-bridge → cross-agent-learning → context-pack-builder → error-harvester → reclassify-memories → degrade-over-injected → wiki-compile → runtime-regression-suite → trajectory-recorder
 
-### 4. Agregar tests unitarios
-Crear `tests/unit/` con tests básicos para:
-- `lib/db.js` - mock de PostgreSQL
-- `lib/openai-rag.js` - mock de fetch
-- `lib/brainx-phase2.js` - test de funciones puras
+**Miércoles + domingo: +2 pasos**
+lifecycle-run + contradiction-detector
 
-Usar el test runner nativo de Node.js (`node --test`) si es posible, o Jest si ya está configurado.
+**Domingo: 13 + 2 + 7 = 22 pasos**
+Los pasos diarios + midweek + memory-consolidation, auto-promoter, promotion-applier, memory-enforcer, memory-audit, dedup-supersede, cleanup-low-signal
 
-### 5. Agregar reintentos en hook/handler.js
-El hook de auto-inyección no maneja fallos de conexión a DB. Agregar:
-- Retry con backoff para queries PostgreSQL
-- Fallback graceful si BrainX no está disponible
-- Logging de errores sin romper el bootstrap del agente
-
-## Entregables:
-1. Archivos modificados con los fixes
-2. Nuevos archivos de tests creados
-3. Resumen de cambios realizados
-
-Verifica cada cambio ejecutando los comandos relevantes para asegurar que funcionan correctamente.
+**Eliminados:** auto-distiller (redundante), memory-md-harvester (67% duplicados)

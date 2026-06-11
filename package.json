@@ -1,13 +1,13 @@
 {
-  "name": "brainx-v5",
-  "version": "0.3.1",
+  "name": "brainx",
+  "version": "0.4.0",
   "private": true,
   "type": "commonjs",
   "scripts": {
     "test": "node ./tests/cli-v5.js",
     "test:smoke": "node ./tests/smoke.js",
     "test:rag": "node ./tests/rag.js",
-    "eval:memory-quality": "node ./scripts/eval-memory-quality.js --dataset ./tests/fixtures/memory-eval-sample.jsonl",
+    "eval:memory-quality": "node ./scripts/eval-memory-quality.js --dataset ./tests/fixtures/memory-eval-real.jsonl",
     "eval:build-real-dataset": "node ./scripts/generate-eval-dataset-from-memories.js ./tests/fixtures/memory-eval-real.jsonl 80"
   },
   "dependencies": {

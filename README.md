@@ -1,26 +1,54 @@
-# 🧠 BrainX V5 — The First Brain for OpenClaw
+# 🧠 BrainX
 
 ![BrainX Banner](assets/brainx-banner.png)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![OpenClaw Compatible](https://img.shields.io/badge/OpenClaw-Compatible-blue.svg)](https://openclaw.ai)
-[![Version](https://img.shields.io/badge/version-0.3.1-green.svg)](https://github.com/Mdx2025/brainx-v5)
+[![Version](https://img.shields.io/badge/version-0.4.0-green.svg)](https://github.com/Mdx2025/brainx)
 
-BrainX V5 is a **persistent memory and vector database system** for AI agents, built on PostgreSQL + pgvector + OpenAI embeddings. It gives every OpenClaw agent the ability to remember, learn, and share knowledge across sessions — delivering true **AI agent memory**, **cross-agent learning**, and **semantic search** at production scale.
+BrainX is a **persistent memory and vector database system** for AI agents, built on PostgreSQL + pgvector + OpenAI embeddings. On this host, the canonical name is simply **BrainX**, with the historical `brainx` skill/CLI and the `brainx` OpenClaw plugin as the active implementation. It gives every OpenClaw agent the ability to remember, learn, and share knowledge across sessions — delivering true **AI agent memory**, **cross-agent learning**, and **semantic search** at production scale.
 
-> **Production-tested · 30+ agent profiles supported · 18/18 doctor checks · Version 0.3.1**
+The current split is explicit:
+
+- `BrainX skill` = long-term memory, CLI, database library, doctor, knowledge sync, backups, and maintenance
+- `brainx plugin` = prompt-time context broker, session working memory, runtime recall, recovery, scoring telemetry, and guardrails
+- `LLM` = reasoning engine
+
+> **Production-tested · 41 agent profiles · plugin-owned runtime · 4 direct BrainX crons · Version 0.4.0**
+
+## Bootstrap Trust Model
+
+BrainX is a memory system, not an oracle. Bootstrap injection is **advisory context**.
+
+- Use injected memories to recover context, prior decisions, and recurring gotchas faster.
+- If a memory conflicts with active code, runtime behavior, DB state, logs, tests, screenshots, or a direct user correction, **live evidence wins**.
+- Do not close contradictions, revert business logic, or claim a fix is done from MEMORY/BrainX/summaries alone when the real artifact is available.
+- `learning` memories remain stored, searchable, and usable on demand, but they are excluded from bootstrap auto-injection by default because they drift more easily than facts, decisions, errors, and gotchas.
+- Cross-agent knowledge still exists; the intended path is explicit fallback recall with `brainx search` / `brainx inject` when local context is insufficient.
+- Direct script execution now forces BrainX's local `.env` to override inherited shell env so maintenance jobs hit the correct physical database.
+
+## Verification States
+
+BrainX now tracks a retrieval trust state per memory:
+
+- `verified` — safe to influence decisions when still relevant
+- `hypothesis` — plausible but not strong enough to outrank live evidence
+- `changelog` — historical/reporting context, not authority
+- `obsolete` — excluded from retrieval
+
+Retrieval and advisory now heavily prefer `verified`, penalize `hypothesis` and `changelog`, and exclude `obsolete`.
 
 | # | Feature | Description |
 |---|---------|-------------|
 | 1 | ✅ **Production** | Active with centralized shared memory across all agents |
-| 2 | 🧠 **Auto-Learning** | Learns on its own from every conversation without human intervention |
+| 2 | 🧠 **Auto-Learning** | Captures and curates memory automatically from conversations, with review gates where durable rule writes would be risky |
 | 3 | 💾 **Persistent Memory** | Remembers across sessions — PostgreSQL + pgvector vector database |
 | 4 | 🤝 **Shared Memory** | All agents share the same knowledge management pool |
-| 5 | 💉 **Automatic Briefing** | Personalized context injection at each agent startup |
+| 5 | 💉 **Runtime Briefing** | Plugin-governed recall and session context, enabled conservatively per runtime policy |
 | 6 | 🔎 **Semantic Search** | Searches by meaning, not exact keywords — pgvector cosine similarity |
 | 7 | 🏷️ **Intelligent Classification** | Auto-typed: facts, decisions, learnings, gotchas, notes |
 | 8 | 📊 **Usage-Based Prioritization** | Hot/warm/cold tiers — automatic promote/degrade based on access |
-| 9 | 🤝 **Cross-Agent Learning** | Propagates important gotchas and learnings across all agents |
+| 9 | 🤝 **Cross-Agent Learning** | Propagates only verified operational gotchas, facts, and decisions across agents |
 | 10 | 🔄 **Anti-Duplicates** | Semantic deduplication by cosine similarity with intelligent merge |
 | 11 | ⚡ **Anti-Contradictions** | Detects contradictory memories and supersedes the obsolete one |
 | 12 | 📋 **Session Indexing** | Searches past conversations (30-day retention) |
@@ -34,10 +62,10 @@ BrainX V5 is a **persistent memory and vector database system** for AI agents, b
 | 20 | 🧵 **Supersede Chains** | Old memories can be replaced cleanly without losing history |
 | 21 | 🌀 **Memory Distillation** | Consolidates raw logs into higher-signal memories over time |
 | 22 | 🛡️ **Pre-Action Advisory** | Queries past mistakes before high-risk tool execution (exec, deploy, delete) |
-| 23 | 👤 **Agent Profiles** | Per-agent hook injection: boosts/filters memories by agent role |
-| 24 | 🔀 **Cross-Agent Injection Slots** | Hook reserves 30% of context slots for other agents' memories |
+| 23 | 👤 **Agent Profiles** | Per-agent retrieval biasing and filtering, whether runtime uses plugin or controlled legacy hooks |
+| 24 | 🔀 **Cross-Agent Recall** | Cross-agent knowledge is retrieved on demand when local-first context is insufficient |
 | 25 | 📊 **Metrics Dashboard** | CLI dashboard with top patterns, memory stats, and usage trends |
-| 26 | 🔧 **Doctor & Auto-Fix** | Schema integrity check + automatic repair of detected issues (18/18 passing) |
+| 26 | 🔧 **Doctor & Auto-Fix** | Schema integrity check + automatic repair of detected issues (`doctor --full` validates command surface, functional probes, live hook deployment, and live-capture telemetry too) |
 | 27 | 👍 **Memory Feedback** | Mark memories as useful/useless/incorrect to refine quality |
 | 28 | 🗺️ **Trajectory Recording** | Records problem→solution paths for future reference |
 | 29 | 📝 **Learning Details** | Extended metadata extraction for learnings and gotchas |
@@ -47,54 +75,90 @@ BrainX V5 is a **persistent memory and vector database system** for AI agents, b
 | 33 | 🏗️ **Session Snapshots** | Captures full agent state at session close for analysis |
 | 34 | 🧹 **Low-Signal Cleanup** | Automatic cleanup of low-value, outdated, or redundant memories |
 | 35 | 🔃 **Memory Reclassification** | Reclassifies memories with correct types and categories post-hoc |
-| 36 | 🔄 **Auto-Promotion Pipeline** | Detects high-recurrence patterns and automatically promotes them as rules in agent workspace files (AGENTS.md, TOOLS.md, SOUL.md). Closes the learning → rule loop without human intervention. |
-| 37 | 📊 **15-Step Daily Pipeline** | Consolidated daily pipeline running 15 automated steps: bootstrap, lifecycle, distiller, harvester, bridge, auto-distiller, consolidation, cross-agent learning, contradiction detection, markdown harvester, error harvester, auto-promoter, promotion-applier, memory-enforcer, and audit. |
+| 36 | 🔄 **Auto-Promotion Pipeline** | Detects high-recurrence patterns and stages vetted rule suggestions for a canonical `agent-core` reference file; final writes are review-gated instead of fully automatic. |
+| 37 | 📊 **Hybrid Daily/Weekly Pipeline** | Current runtime runs 14 daily steps, 2 Wednesday/Sunday steps, and 8 Sunday-only maintenance steps. |
+| 38 | ⚡ **Near-Real-Time Live Capture** | Optional runtime capture path for high-signal outbound recommendations at `message:sent`, meant for controlled enablement rather than always-on global use. |
+| 39 | 📡 **Live Capture Observability** | `doctor` and `metrics` expose live-capture volume, low-signal skips, duplicates, persistence failures, latency, and last success/error. |
+| 40 | 🧠 **Session Working Memory Layer** | The `brainx` plugin maintains short-lived session state and injects it before historical recall, with optional MiniMax-based summarization. |
+| 41 | 🔁 **Handoff Promoter** | Converts high-signal session snapshots into durable hot memories and finality-scored artifact ledger rows. |
+| 42 | 📎 **Artifact Ledger** | Stores durable final artifact paths with role/provenance/finality so rotated sessions can recover deliverables without relying only on transcript context. |
+| 43 | 🧭 **Semantic Recovery Preflight** | Uses router-assisted intent classification to detect continuation/context-loss requests beyond fixed regex phrases. |
+| 44 | 🧭 **Context Broker Runtime** | Classifies turn intent/runtime family, selects one context surface, and keeps ACP recall quiet unless evidence is needed. |
+| 45 | 🧾 **Event Ledger** | Deterministic forensic index for fixes, incidents, decisions, deployments, handoffs, and audits. |
+| 46 | 🔍 **Runtime Explainability** | `runtime-report` exposes hard/soft signal ratios and `explain` inspects individual runtime injection decisions. |
 
-> **Name:** The repo/CLI keeps the historical name `brainx-v5`. The current version is **BrainX V5** (v0.3.1) with governance, observability, lifecycle management, auto-promotion pipeline, and an LLM-powered auto-feeding system.
+> **Name:** The canonical product/runtime name on this host is **BrainX**. The repo/CLI command remains `brainx`, and the runtime ownership stays in the `brainx` plugin with trust-gated retrieval, plugin-owned governance, stale-memory safety filters, and the optimized daily/weekly pipeline.
+
+> **Inventory vs runtime:** The feature table above is a capability inventory, not a claim that every surface is active on this host. For the `/home/clawd` production reality, use [`docs/RUNTIME_STATUS.md`](docs/RUNTIME_STATUS.md) plus the machine-readable [`config/surface-policy.json`](config/surface-policy.json).
 
 ---
 
 ## Status
 
-### Validation — 2026-03-18
+### Validation Surface — 2026-05-26
 
-BrainX V5 is fully validated and production-tested:
+BrainX currently exposes:
 
-- **18/18 doctor checks passing** — database, schema, embeddings, hooks, and pipeline all green
-- **Multi-agent smoke-tested** — bootstrap injection, context generation, and telemetry confirmed working
-- **Cross-agent injection** active — agents receive relevant memories from other agents (30% injection slots)
-- **Agent profiles** configured with role-specific boosting and filtering
+- **44 fast doctor checks currently passing**
+- **59 full doctor checks currently passing**
+- **0 current doctor failures** on the fast validation path
+- **Plugin-owned runtime path** — the `brainx` plugin is the intended runtime surface inside OpenClaw
+- **Legacy hooks review-gated** — `brainx-auto-inject` and `brainx-live-capture` can still exist on disk, but should not be treated as the default route on this host
+- **Active plugin runtime surfaces** — `wikiDigest`, `jitRecall`, `router_llm`, `workingMemory`, `toolAdvisories`, semantic recovery, and `captureToolFailures` are enabled globally on `/home/clawd`
+- **Disabled bridge surfaces** — `bootstrapMode=off` and `captureOutboundMode=off`; legacy bootstrap/outbound capture files remain troubleshooting or controlled-rollout artifacts
+- **Skill remains authoritative backend** — cron, doctor, knowledge sync, lifecycle, and storage continue to run independently of runtime feature toggles
+- **Runtime observability** — `brainx runtime-report` reports aggregate hard and soft signal ratios; `brainx explain` inspects individual injection decisions
+- **Current live result (2026-06-01)** — `brainx doctor --json` = `42 passed / 2 warnings / 0 failures`; `brainx doctor --full --json` = `58 passed / 2 warnings / 0 failures`. The 2 warnings are `BrainX Wiki` (low-confidence ratio) and `Promotion suggestion drift`, both pre-existing and unrelated to recall; `Recall quality` is `ok` after the 2026-06-01 inject self-test / adaptive-baseline fix.
 
-Run `./brainx-v5 doctor` anytime to verify your installation health.
+Current pass/fail state depends on the live dataset and environment. Run `./brainx doctor` for the fast baseline, or `./brainx doctor --full` for the full validation pass.
+
+### Host Runtime Truth — 2026-05-26
+
+For the `/home/clawd` host, the operational source of truth is [`docs/RUNTIME_STATUS.md`](docs/RUNTIME_STATUS.md), with [`config/surface-policy.json`](config/surface-policy.json) as the machine-readable companion used by `doctor`.
+
+- canonical skill path is `~/.openclaw/skills/brainx`
+- the `brainx` plugin keeps `wikiDigest=true`, `jitRecall=true`, `workingMemory=true`, `toolAdvisories=true`, and `captureToolFailures=true` as global runtime surfaces
+- `bootstrapMode=off` and `captureOutboundMode=off`; do not treat legacy `BRAINX_CONTEXT.md`, `brainx-topics/`, or live-capture hook artifacts as the normal runtime path
+- legacy hooks remain on disk for compatibility, but are disabled in `openclaw.json`
+- the active scheduler has 4 direct BrainX OpenClaw jobs: 3 BrainX orchestrators plus 1 hourly canary
+- BrainX cron wrappers execute from `~/.openclaw/skills/brainx/cron/`; OpenClaw `jobs.json` only schedules them
+- the daily core wrapper runs 14 daily steps, 2 Wednesday/Sunday steps, and 8 Sunday-only steps
+- BrainX operational work is consolidated into `BrainX Review Loop` and `BrainX Maintenance`; legacy BrainX jobs remain disabled rollback entries
+- mixed `clawd` crontab wrappers add `observe-telemetry`, `backup-all-dbs`, and `brainx-cron-supervisor` as BrainX-adjacent jobs
 
 ## Post-Update Sync Checklist
 
-After updating BrainX V5, sync the managed hook to prevent runtime drift:
+After updating BrainX, validate runtime ownership before enabling new behavior:
 
-1. Copy hook files from the skill source to the managed hook directory
-2. Run `./brainx-v5 doctor` — expect all checks passing
-3. Run a bootstrap smoke test on any agent and verify `MEMORY.md` updates
-4. Confirm telemetry lands in the database
-7. **If cron architecture changes again, update both code and docs together**
+1. Run `./brainx doctor --full` and review governance / hygiene warnings first
+2. Confirm `openclaw.json` still points runtime ownership at the plugin, not at legacy hooks
+3. If you intentionally change a runtime feature, change one surface at a time and smoke-test it
+4. Confirm telemetry lands in the database when the feature is active
+5. **If cron architecture changes again, update both code and docs together**
    - Update `lib/doctor.js`
    - Update this `README.md`
-   - Update `hook/HOOK.md` if deployment steps change
+   - Update `docs/CLI.md` when CLI commands or output fields change
+   - Update `scripts/MANIFEST.md` when script status/frequency changes
+   - Update `hook/HOOK.md` only if legacy deployment guidance changes
    - Update `CRON.md` if production scheduler topology changed
+6. For validated fixes/audits/incidents, create or update the relevant BrainX bugs entry and Event Ledger record
 
 ### Key files to keep in sync
 
-When updating BrainX V5, ensure these stay aligned:
-- Skill source files: `README.md`, `lib/doctor.js`, `hook/*`
-- Managed hook: the deployed copy of hook files in your OpenClaw hooks directory
+When updating BrainX, ensure these stay aligned:
+- Skill source files: `README.md`, `brainx.md`, `docs/CLI.md`, `lib/doctor.js`, `lib/live-capture-stats.js`, `lib/working-memory.js`, `lib/openai-rag.js`
+- Runtime policy/status files: `config/surface-policy.json`, `docs/RUNTIME_STATUS.md`, `docs/CRON.md`, `scripts/MANIFEST.md`
+- Plugin runtime files: `~/.openclaw/extensions/brainx/*`
+- Managed hooks only if you are intentionally maintaining legacy compatibility
 - Cron config: if you change the pipeline schedule or steps
 
 ---
 
 ## 🧠 Auto-Learning
 
-> **BrainX doesn't just store memories — it learns on its own.** Auto-Learning is the integrated system that makes every agent improve with every conversation, without human intervention.
+> **BrainX doesn't just store memories — it learns continuously.** Auto-Learning is the integrated system that makes every agent improve with every conversation, while keeping review gates around high-impact writes.
 
-Auto-Learning is NOT a single script. It is the **complete orchestration** of capture, curation, propagation, and injection that converts ephemeral conversations into permanent, shared knowledge. It runs 24/7 via cron jobs, with no human intervention required.
+Auto-Learning is NOT a single script. It is the **complete orchestration** of capture, curation, propagation, and injection that converts ephemeral conversations into governed, shared knowledge. It runs 24/7 via cron jobs, while permanent workspace-rule writes remain explicitly gated.
 
 ### Complete Auto-Learning Cycle
 
@@ -141,14 +205,14 @@ Auto-Learning is NOT a single script. It is the **complete orchestration** of ca
 │          └────────────────┼──────────────────┘                        │
 │                           ▼                                            │
 │                  ┌─────────────────┐                                   │
-│                  │ 💉 CONTEXTUAL   │                                   │
-│                  │ INJECTION       │                                   │
+│                  │ 💉 RUNTIME      │                                   │
+│                  │ CONTEXT         │                                   │
 │                  │                 │                                   │
-│                  │ Auto-inject at  │                                   │
-│                  │ every agent     │                                   │
-│                  │ bootstrap       │                                   │
-│                  │ Score-based     │                                   │
-│                  │ ranking         │                                   │
+│                  │ Plugin JIT      │                                   │
+│                  │ recall + WM +   │                                   │
+│                  │ wiki digest     │                                   │
+│                  │ Legacy hooks    │                                   │
+│                  │ off by default  │                                   │
 │                  └─────────────────┘                                   │
 │                           │                                            │
 │                           ▼                                            │
@@ -166,22 +230,24 @@ Auto-Learning is NOT a single script. It is the **complete orchestration** of ca
 
 ### 📥 Automatic Memory Capture
 
-**What it does:** Converts ALL agent activity into vector memories without anyone having to do anything.
+**What it does:** Converts high-signal agent activity and curated workspace notes into vector memories without manual DB work.
 
 **Why it matters:** Without this, every session would be disposable. Agents would forget everything. With Auto-Learning, every conversation is a permanent learning opportunity.
 
-BrainX captures memories through **4 complementary mechanisms** working in parallel:
+BrainX captures memories through a consolidated daily/weekly pipeline plus optional/manual surfaces:
 
-| Mechanism | How it works | What it captures | Frequency |
+| Mechanism | How it works | What it captures | Current host cadence |
 |-----------|--------------|-----------------|-----------|
-| **Memory Distiller** (`scripts/memory-distiller.js`) | LLM (gpt-4.1-mini) reads full session transcripts | Preferences, decisions, personal/technical/financial data — ALL memory types | Every 6h |
-| **Fact Extractor** (`scripts/fact-extractor.js`) | Regex patterns extract structured data | Production URLs, services, repos, ports, branches, configs | Every 6h |
-| **Session Harvester** (`scripts/session-harvester.js`) | Heuristics and regex classify conversations | Conversation patterns, recurring topics, operational context | Every 4h |
-| **Memory Bridge** (`scripts/memory-bridge.js`) | Syncs markdown files to vector database | Manual notes in `memory/*.md`, documentation, written decisions | Every 6h |
+| **Memory Distiller** (`scripts/memory-distiller.js`) | LLM reads recent session transcripts | Decisions, preferences, technical/personal/business context when high-signal | Daily pipeline step 2 |
+| **Session Harvester** (`scripts/session-harvester.js`) | Heuristics and regex classify recent sessions | Conversation patterns, recurring topics, operational context | Daily pipeline step 3 |
+| **Memory Bridge** (`scripts/memory-bridge.js`) | Syncs markdown files to vector database | Manual notes in `memory/*.md`, documentation, written decisions | Daily pipeline step 4 |
+| **Cross-Agent Learning** (`scripts/cross-agent-learning.js`) | Shares verified high-importance knowledge across agent contexts | Operational facts, decisions, gotchas | Daily pipeline step 5 |
+| **Context Packs** (`scripts/context-pack-builder.js`) | Builds compact context packs per project/context | Weekly-style situational summaries | Daily pipeline step 6 |
+| **Fact Extractor** (`scripts/fact-extractor.js`) | Regex/LLM extraction of operational facts | URLs, services, repos, ports, branches, configs | Implemented; not part of the current daily wrapper |
+| **Live Capture Hook** (`hook-live/handler.js`) | Legacy hook on successful `message:sent` | High-signal outbound recommendations | Disabled on this host; use controlled rollout only |
 
 **Real example:** An agent discusses a deployment with the user. Without anyone doing anything:
-- The **Fact Extractor** captures the service URL and repo name
-- The **Memory Distiller** extracts the decision to use that service and why
+- The **Session Harvester** or **Memory Distiller** captures the service URL, repo name, decision, and rationale if the turn has enough signal
 - The **Memory Bridge** syncs the daily notes
 - Everything is available for ANY agent in the next session
 
@@ -189,7 +255,7 @@ BrainX captures memories through **4 complementary mechanisms** working in paral
 
 ### 🤝 Cross-Agent Learning
 
-**What it does:** When an agent discovers something important (a bug, a gotcha, a learning), it automatically propagates it to ALL other agents.
+**What it does:** When an agent discovers durable operational knowledge, BrainX can propagate the verified part of it to other agents.
 
 **Why it matters:** Without this, each agent would be an island. The coder would discover a bug and the researcher would find it again. With cross-agent learning, knowledge flows between all agents.
 
@@ -198,10 +264,11 @@ BrainX captures memories through **4 complementary mechanisms** working in paral
 
 **How it works:**
 
-1. Scans recent memories with importance ≥ 7 and types `gotcha`, `learning`, `correction`
-2. Identifies memories created by a specific agent
-3. Replicates those memories in the context of other agents
-4. Generates **weekly context packs** by project and by agent (`scripts/context-pack-builder.js`)
+1. Scans recent memories with strong importance and `verification_state = verified`
+2. Restricts candidates to `gotcha`, `fact`, and `decision`
+3. Identifies memories created by a specific agent
+4. Replicates only those vetted memories in the context of other agents
+5. Generates **weekly context packs** by project and by agent (`scripts/context-pack-builder.js`)
 
 **Real example:**
 ```
@@ -221,25 +288,29 @@ No agent makes that mistake again
 
 **Why it matters:** Without automatic curation, memory would fill up with noise, duplicates, and obsolete information. Retrieval quality would degrade over time. With auto-improvement, memory becomes MORE accurate with each cycle.
 
-**5 scripts work together:**
+The current host splits curation between active Sunday maintenance and manual tools:
 
-| Script | What it does | Frequency |
+| Script | What it does | Current host cadence |
 |--------|-------------|-----------|
-| `scripts/quality-scorer.js` | Evaluates each memory on multiple dimensions (specificity, actionability, relevance). Promotes high-quality memories, degrades low-quality ones | Daily |
-| `scripts/contradiction-detector.js` | Finds memories that contradict each other. Supersedes the obsolete version, keeps the most recent/accurate | Daily |
-| `scripts/dedup-supersede.js` | Detects duplicate or near-identical memories by cosine similarity. Intelligent merge keeping the most complete information | Weekly |
-| `scripts/cleanup-low-signal.js` | Archives low-value memories: too short, low importance, no recent accesses. Frees space for useful memories | Weekly |
-| **Lifecycle run** (via `lifecycle-run` CLI) | Promotes memories between tiers: `hot` → `warm` → `cold` based on age, accesses, and quality. Hot memories always available, cold ones archived | Automatic |
+| `./brainx lifecycle-run` | Promotes/degrades by age, access, recurrence, and importance | Sunday wrapper |
+| `scripts/memory-consolidator.js` | Consolidates mature same-scope memories safely | Sunday wrapper |
+| `scripts/contradiction-detector.js` | Finds contradictions and supersedes obsolete rows | Sunday wrapper |
+| `scripts/error-harvester.js` | Extracts command/runtime failures from session logs | Sunday wrapper |
+| `scripts/auto-promoter.js` | Detects recurring patterns and stages suggestions | Sunday wrapper |
+| `scripts/promotion-applier.js` | Distills pending promotions behind review gates | Sunday wrapper |
+| `scripts/quality-scorer.js` | Evaluates individual memory quality | Manual/off in current wrapper |
+| `scripts/dedup-supersede.js` | Exact duplicate superseding | Manual/off in current wrapper |
+| `scripts/cleanup-low-signal.js` | Degrades/archives low-signal rows | Manual/off in current wrapper |
 
 **Curation flow:**
 ```
 New memory arrives
     ↓
-Quality Scorer → Is it useful? Specific? Actionable?
+Daily capture → Is it high-signal enough to store?
     ↓                                    ↓
-  Yes → promote (importance +1)     No → degrade (importance -1)
-    ↓                                    ↓
-Contradiction Detector              Cleanup → archive if importance < 3
+  Yes → BrainX DB                   No → skip
+    ↓
+Sunday lifecycle / consolidation / contradiction checks
     ↓
 Does it contradict something existing?
     ↓              ↓
@@ -256,19 +327,19 @@ Lifecycle → hot/warm/cold based on usage
 
 ### 🔄 Auto-Promotion Pipeline
 
-**What it does:** Detects high-recurrence patterns and automatically promotes them as permanent rules into agent workspace files (AGENTS.md, TOOLS.md, SOUL.md). Closes the learning → rule loop without any human intervention required.
+**What it does:** Detects high-recurrence patterns and prepares vetted promotion suggestions for sections of the canonical `agent-core` reference file. Final writes are review-gated.
 
-**Why it matters:** Patterns that repeat 10+ times in memory are operationally critical. Instead of staying buried in vector search results, they get written directly into the files every agent reads at startup — becoming permanent behavioral rules.
+**Why it matters:** Recurrent patterns should graduate into startup-visible rules, but only after low-signal narrative and duplicate suggestions are filtered out.
 
 **Scripts:** `scripts/auto-promoter.js` → `scripts/promotion-applier.js`
-**Frequency:** Daily (pipeline steps 12–13)
+**Frequency:** Sunday-only maintenance steps 11–12 in the consolidated wrapper
 
 **How it works:**
 
 1. `auto-promoter.js` scans `brainx_patterns` for entries with `recurrence_count ≥ threshold`
-2. Classifies each pattern to its target file (AGENTS.md, TOOLS.md, or SOUL.md) based on content type
+2. Classifies each pattern to its target section (`Workflow & Execution`, `Tools & Infrastructure`, or `Behavior & Tone`) based on content type
 3. Saves suggestions as BrainX memories tagged `promotion-suggestion`
-4. `promotion-applier.js` reads pending suggestions, distills them via LLM (gpt-4.1-mini), and writes the final rules into the workspace files under the `## Auto-Promoted Rules` section
+4. `promotion-applier.js` reads only pending, non-obsolete suggestions, distills them via LLM (gpt-4.1-mini), and writes final rules only when an explicit review gate is opened
 
 **Result:**
 ```
@@ -277,40 +348,44 @@ Pattern: "Use plugin v2 for WordPress publishing" (×33)
     ↓ saves promotion-suggestion memory
     ↓ promotion-applier.js distills via LLM
     ↓
-TOOLS.md → "Usar siempre la versión v2 del plugin WordPress…" written permanently
+`BRAINX_PROMOTED_RULES.md` / `Tools & Infrastructure` → "Usar siempre la versión v2 del plugin WordPress…" staged and then written with explicit approval
     ↓
-Every future agent reads it at startup — zero re-learning
+Cada agente ve la ruta canónica desde `AGENTS.md` / `TOOLS.md` y puede recuperarla sin drift entre workspaces
 ```
 
 ---
 
 ### 💉 Intelligent Contextual Injection
 
-**What it does:** At every agent session start, automatically injects the most relevant memories for the current context.
+**What it does:** When runtime recall is enabled, the plugin acts as a context broker. It classifies the turn, chooses one surface, and injects only the most relevant evidence for the current task.
 
 **Why it matters:** There's no point having perfect memory if the agent doesn't receive it. Contextual injection is the bridge between "stored memories" and "informed agent." Without this, BrainX would be a database no one queries.
 
-**Component:** Auto-inject hook (`hook/handler.js` + `lib/cli.js inject`)
-**Frequency:** Every agent bootstrap (every new session)
+**Component:** `brainx` plugin + `lib/cli.js inject`
+**Frequency:** Runtime prompt-time surface. On `/home/clawd`, `wikiDigest`, `jitRecall`, and `workingMemory` are enabled globally.
 
 **How it works:**
 
-1. The hook executes automatically when starting any agent session
-2. Runs `brainx inject --agent <agent_id>` which:
-   - Searches for memories relevant to the current agent (by context `agent:ID`)
-   - Ranks by **composite score**: semantic similarity × importance × tier
-   - Always includes **operational facts** (URLs, configs, services)
-   - Formats everything as an injectable markdown block in the prompt
-3. The result is written to `BRAINX_CONTEXT.md` which the agent reads at startup
+1. The plugin evaluates the current prompt/session before the model run
+2. It classifies turn intent: artifact request, continuity, context loss, historical/procedural query, troubleshooting, project/domain recall, or casual/control
+3. It infers runtime family: ACP, Codex, embedded Kimi/MiniMax, or unknown
+4. It chooses one surface:
+   - `recovery_preflight` for artifacts, session continuity, and context-loss recovery
+   - `jit_recall` for high-confidence historical/procedural/troubleshooting memory
+   - `working_memory` for short session state when relevant
+   - `wiki_digest` for compact compiled knowledge when prompt signals match
+5. Trust, scope, prompt overlap, same-agent/cross-agent policy, artifact finality, and per-turn budget gates filter the final block
+6. Legacy hook-generated files like `BRAINX_CONTEXT.md` are optional compatibility artifacts, not the primary runtime path
 
-**Injection ranking:**
+**Runtime selection shape:**
 ```
-Score = (cosine_similarity × 0.4) + (importance/10 × 0.3) + (tier_weight × 0.2) + (recency × 0.1)
+Prompt signal → turn intent/runtime family → one surface per turn budget
+  1. recovery_preflight for artifact/sessionKey handoff
+  2. jit_recall only when evidence is needed
+  3. working_memory/wiki_digest as quieter fallback surfaces
+```
 
-Where:
-  tier_weight: hot=1.0, warm=0.6, cold=0.2
-  recency: exponential decay from last_accessed
-```
+ACP-specific rule: ACP agents usually preserve upstream context, so generic domain recall is suppressed unless the prompt asks for recovery, explicit/historical/procedural memory, or troubleshooting evidence.
 
 ---
 
@@ -320,54 +395,69 @@ Where:
 
 **Why it matters:** Recurring patterns are the most valuable memories — if something appears 5 times, it's probably critical. Automatic detection ensures these memories are never lost or degraded.
 
-**Mechanism integrated in:** `scripts/quality-scorer.js` + `lib/openai-rag.js`
+**Mechanism integrated in:** `lib/openai-rag.js`, `brainx_patterns`, `lifecycle-run`, and Sunday promotion maintenance (`auto-promoter` / `promotion-applier`).
 
 **How it works:**
 
 1. **Recurrence counting:** Each time a memory is accessed or a similar one is created, `recurrence_count` increments
 2. **Pattern key:** Similar memories are grouped under a common `pattern_key` (semantic hash)
-3. **Auto-promote:** When `recurrence_count` exceeds a threshold:
-   - ≥ 3 occurrences → importance +1
-   - ≥ 5 occurrences → promote to `hot` tier
-   - ≥ 10 occurrences → mark as `core_knowledge` (never archived)
+3. **Promotion candidate:** when recurrence and quality thresholds pass, BrainX stages promotion suggestions for review-gated application rather than writing permanent rules blindly.
 
 **Example:**
 ```
 Memory: "CLI tool requires --detach for deploys"
   → Appears in 3 different sessions from 3 agents
   → recurrence_count = 3
-  → Auto-promote: importance 6 → 7
+  → lifecycle / promoter can raise importance or create a promotion suggestion
   → Appears 2 more times
   → recurrence_count = 5
-  → Auto-promote to hot tier (always available)
+  → review-gated promotion can move the rule into canonical agent-core docs
 ```
 
 ---
 
-### 📊 15-Step Daily Pipeline
+### 📊 Hybrid Daily/Weekly Pipeline
 
-BrainX V5 runs a consolidated daily pipeline with 15 sequential steps, ensuring complete memory lifecycle management in a single orchestrated run.
+BrainX now runs a hybrid pipeline: 14 daily steps every day, 2 additional steps on Wednesday and Sunday, plus 7 deeper maintenance steps only on Sundays.
 
 **Pipeline name:** `BrainX Daily Core Pipeline V5`
 **Frequency:** Daily (OpenClaw cron)
 
 | Step | Script | Function |
 |------|--------|----------|
-| 1 | `bootstrap` | Environment validation and DB connectivity check |
-| 2 | `lifecycle` | Lifecycle-run (promote/degrade by age and usage) |
-| 3 | `distiller` | Memory Distiller (LLM extraction from session transcripts) |
-| 4 | `harvester` | Session Harvester (regex-based session capture) |
+| 1 | `bootstrap` | Create daily memory files across workspaces |
+| 2 | `distiller` | Memory Distiller (LLM extraction from session transcripts) |
+| 3 | `harvester` | Session Harvester (regex-based session capture) |
+| 4 | `handoff-promoter` | Promote snapshot handoffs into durable hot memories and artifact ledger rows |
 | 5 | `bridge` | Memory Bridge (markdown → vector sync) |
-| 6 | `auto-distiller` | Auto-distiller pass for recent unprocessed sessions |
-| 7 | `consolidation` | Memory consolidation and quality normalization |
-| 8 | `cross-agent` | Cross-agent learning propagation |
-| 9 | `contradiction` | Contradiction detection and supersede |
-| 10 | `markdown-harvester` | Markdown harvester for workspace files |
-| 11 | `error-harvester` | Error harvester from session logs |
-| 12 | `auto-promoter` | Pattern promotion candidate detection |
-| 13 | `promotion-applier` | Apply pending promotions to workspace files |
-| 14 | `memory-enforcer` | Memory enforcement and integrity validation |
-| 15 | `audit` | Full audit and metrics generation |
+| 6 | `cross-agent` | Cross-agent learning propagation |
+| 7 | `context-pack-builder` | Build context packs for fast situational recall |
+| 8 | `error-harvester` | Capture recent command failures as gotchas |
+| 9 | `reclassify-memories` | Keep categories and types current |
+| 10 | `degrade-over-injected` | Demote over-injected unused memories |
+| 11 | `self-learning-audit` | Read-only autonomy report for noisy/useful memories, stale rows, repeated failures, knowledge gaps, and low-recall query signals |
+| 12 | `wiki-compile` | Refresh the BrainX vault and digest source |
+| 13 | `runtime-regression-suite` | Validate runtime guardrails |
+| 14 | `trajectory-recorder` | Extract problem→solution trajectories |
+
+Wednesday + Sunday steps:
+
+| Step | Script | Function |
+|------|--------|----------|
+| 15 | `lifecycle` | Lifecycle-run (promote/degrade by age and usage) |
+| 16 | `contradiction` | Contradiction detection and supersede |
+
+Sunday-only extra maintenance:
+
+| Step | Script | Function |
+|------|--------|----------|
+| 17 | `consolidation` | Weekly semantic consolidation for mature same-scope memories |
+| 18 | `auto-promoter` | Pattern promotion candidate detection |
+| 19 | `promotion-applier` | Distill pending promotions in review-gated mode |
+| 20 | `memory-enforcer` | Memory enforcement and integrity validation |
+| 21 | `memory-audit` | Full audit and amnesia detection |
+| 22 | `dedup-supersede` | Exact duplicate supersede |
+| 23 | `cleanup-low-signal` | Degrade low-signal short memories |
 
 ---
 
@@ -377,13 +467,17 @@ All crons that feed the auto-learning cycle:
 
 | Frequency | Scripts | Function |
 |-----------|---------|----------|
-| **Every 4h** | `session-harvester.js` | Capture new sessions |
-| **Every 6h** | `memory-distiller.js`, `fact-extractor.js`, `memory-bridge.js` | Extract memories and facts |
-| **Daily** | 15-step pipeline (cross-agent, contradiction, quality, auto-promoter, promotion-applier, etc.) | Full orchestration cycle |
-| **Weekly** | `context-pack-builder.js`, `cleanup-low-signal.js`, `dedup-supersede.js` | Packs, cleanup, dedup |
-| **Each session** | Auto-inject hook | Inject memories into agent |
+| **Daily** | 14-step pipeline | Fast orchestration cycle for active memory flow |
+| **Wednesday + Sunday** | lifecycle + contradiction | Midweek governance so stale/contradictory rows do not wait a full week |
+| **Sunday** | 7 extra maintenance steps | Deep weekly cleanup and governance |
+| **Every 7h** | BrainX Knowledge Sync wrapper | Sync canonical `knowledge/` docs and auto blocks |
+| **Every 4h** | BrainX Session Snapshot + handoff-promoter | Capture session state and promote stable handoff facts/finality-scored artifacts |
+| **Nightly memory** | BrainX Nightly Memory Loop | Cross-workspace daily consolidate + compact daily closeout |
+| **Daily health** | BrainX Injection Health | Compact injection health report |
+| **Runtime prompt-time** | `brainx` plugin | Context broker, semantic recovery, finality-ranked artifacts, JIT recall, working memory, wiki digest, tool advisories, tool-failure capture |
+| **Disabled legacy hooks** | Auto-inject / live capture hooks | Compatibility and controlled rollout only |
 
-> **Zero-maintenance:** Once crons are set up, BrainX learns, self-optimizes, promotes patterns to rules, and shares knowledge completely on its own. Agents improve with every session without anyone touching anything.
+> **Low-maintenance:** Once crons are set up, BrainX learns, self-optimizes, shares knowledge, and stages recurrent rules for review. Agents improve with minimal manual intervention.
 
 ---
 
@@ -393,23 +487,29 @@ All crons that feed the auto-learning cycle:
 
 | Script | Description | LLM | Cron |
 |--------|-------------|-----|------|
-| `memory-distiller.js` | 🧬 LLM-powered memory extractor from session transcripts | gpt-4.1-mini | Every 6h |
-| `fact-extractor.js` | 📌 Regex extractor of operational facts (URLs, services, configs) | No | Every 6h |
-| `session-harvester.js` | 🔍 Session harvester based on regex heuristics | No | Every 4h |
-| `memory-bridge.js` | 🌉 Syncs `memory/*.md` files to vector brain | No | Every 6h |
+| `memory-distiller.js` | 🧬 LLM-powered memory extractor from session transcripts | gpt-4.1-mini | Daily wrapper |
+| `fact-extractor.js` | 📌 Regex extractor of operational facts (URLs, services, configs) | No | Manual/off in current wrapper |
+| `session-harvester.js` | 🔍 Session harvester based on regex heuristics | No | Daily wrapper |
+| `memory-bridge.js` | 🌉 Syncs `memory/*.md` files to vector brain | No | Daily wrapper |
 | `cross-agent-learning.js` | 🤝 Propagates high-importance learnings between agents | No | Daily |
-| `contradiction-detector.js` | ⚡ Detects contradictory memories and supersedes obsolete ones | No | Daily |
-| `quality-scorer.js` | ⭐ Evaluates memory quality (promote/degrade/archive) | No | Daily |
-| `context-pack-builder.js` | 📦 Generates weekly context packs per agent/project | No | Weekly |
-| `cleanup-low-signal.js` | 🧹 Cleans low-value memories (short, low importance) | No | Weekly |
-| `dedup-supersede.js` | 🔗 Exact deduplication and superseding of identical memories | No | Weekly |
-| `error-harvester.js` | 🔍 Scans session logs for command failures, saves as gotchas | No | Daily |
-| `auto-promoter.js` | 📋 Detects high-recurrence patterns, suggests workspace promotions | No | Daily (pipeline step 12) |
-| `promotion-applier.js` | 🔄 Reads pending pattern suggestions, distills via LLM, writes rules to workspace files | gpt-4.1-mini | Daily (pipeline step 13) |
+| `contradiction-detector.js` | ⚡ Detects contradictory memories and supersedes obsolete ones | No | Sunday wrapper |
+| `quality-scorer.js` | ⭐ Evaluates memory quality (promote/degrade/archive) | No | Manual/off in current wrapper |
+| `memory-consolidator.js` | 🧠 Weekly-safe semantic consolidation of mature same-scope memories | No | Weekly (guarded) |
+| `context-pack-builder.js` | 📦 Generates context packs per agent/project | No | Daily wrapper |
+| `cleanup-low-signal.js` | 🧹 Cleans low-value memories (short, low importance) | No | Manual/off in current wrapper |
+| `dedup-supersede.js` | 🔗 Exact deduplication and superseding of identical memories | No | Manual/off in current wrapper |
+| `error-harvester.js` | 🔍 Scans session logs for command failures, saves as gotchas | No | Sunday wrapper |
+| `auto-promoter.js` | 📋 Detects high-recurrence patterns, suggests workspace promotions | No | Sunday wrapper |
+| `promotion-applier.js` | 🔄 Reads pending pattern suggestions, distills via LLM, prepares a review-gated apply pass | gpt-4.1-mini | Sunday wrapper |
 | `reclassify-memories.js` | 🏷️ Reclassifies existing memories to new categories | No | Manual |
 | `eval-memory-quality.js` | 📊 Offline evaluation of retrieval quality | No | Manual |
 | `generate-eval-dataset-from-memories.js` | 📋 Generates JSONL dataset for benchmarks | No | Manual |
 | `import-workspace-memory-md.js` | 📥 Imports workspace MEMORY.md into vector brain | No | Manual |
+| `import-knowledge-md.js` | 📚 Imports curated `knowledge/` docs into vector brain as canonical knowledge | No | Manual |
+| `knowledge-sync.js` | 🔄 Detects manual changes in `knowledge/`, imports only when needed, then refreshes BrainX auto blocks | No | Manual / Cron |
+| `new-knowledge-topic.js` | 🧱 Creates canonical knowledge topic files with manual + auto blocks | No | Manual |
+| `sync-knowledge-auto-blocks.js` | 🔁 Refreshes only the BrainX auto block inside knowledge docs | No | Manual |
+| `seed-knowledge-library.js` | 🌱 Creates realistic starter topics across the knowledge taxonomy | No | Manual |
 | `migrate-v2-to-v3.js` | 🔄 Data migration from BrainX V2 | No | Once |
 | `backup-brainx.sh` | 🛡️ Full backup (DB + configs + hooks) | No | Daily (recommended cron) |
 | `restore-brainx.sh` | 🛡️ Full restore from backup | No | Manual |
@@ -428,14 +528,15 @@ All crons that feed the auto-learning cycle:
 |--------|-------------|
 | `openai-rag.js` | Core RAG: OpenAI embeddings, store with semantic dedup, search with scoring, query logging |
 | `brainx-phase2.js` | PII scrubbing (14 patterns), dedup config, tag merging, merge plan derivation |
+| `live-capture-stats.js` | Shared telemetry parser/writer for near-real-time live-capture observability |
 | `db.js` | PostgreSQL connection pool with transaction support |
-| `cli.js` | Full CLI with all commands (health, add, fact, facts, search, inject, resolve, etc.) |
+| `cli.js` | Full CLI with all commands (health, add, fact, facts, search, inject, runtime-report, explain, event, resolve, etc.) |
 
 ---
 
 ## Architecture
 
-BrainX V5 operates in **3 feeding layers** working together:
+BrainX operates in **3 feeding layers** working together:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -467,8 +568,8 @@ BrainX V5 operates in **3 feeding layers** working together:
               (centralized database)
                         │
                         ▼
-              hook/handler.js (auto-inject)
-              → BRAINX_CONTEXT.md in each workspace
+              brainx plugin (runtime recall)
+              → working memory + guarded recall in prompt assembly
 ```
 
 ### Data flow
@@ -478,20 +579,44 @@ Agent sessions ──→ Fact Extractor (regex)     ──→ PostgreSQL
                ──→ Memory Distiller (LLM)     ──→ PostgreSQL
                ──→ Session Harvester (regex)   ──→ PostgreSQL
                ──→ Memory Bridge (markdown)    ──→ PostgreSQL
+               ──→ Live Capture Hook           ──→ PostgreSQL
                ──→ Agents write directly       ──→ PostgreSQL
                                                       │
                                ┌─────────────────────┤
                                │                     │
                                ▼                     ▼
-                        Quality Scorer        hook/handler.js
+                        Quality Scorer        brainx plugin
                         Contradiction Det.          │
                         Cross-Agent Learning        ▼
-                        Dedup/Supersede       BRAINX_CONTEXT.md
-                        Cleanup Low-Signal    (3 sections:
-                        Lifecycle-Run          📌 Project Facts
-                        Auto-Promoter          🤖 Own memories
-                        Promotion-Applier      🔥 High-imp. team)
+                        Dedup/Supersede       prompt-time runtime context
+                        Cleanup Low-Signal    (working memory + verified recall)
+                        Lifecycle-Run
+                                Auto-Promoter
+                                Promotion-Applier
 ```
+
+Parallel to the batch/cron ingestion paths, live-capture telemetry can still exist for controlled rollouts. `doctor` and `metrics` read `~/.openclaw/logs/brainx-live-capture.log` to expose capture health, dedupe, failures, and latency whether the route is currently enabled or retained only for audit.
+
+---
+
+## Canonical Layout
+
+BrainX uses a strict source-vs-runtime split.
+
+- Stable guide: `~/.openclaw/skills/brainx/brainx.md`
+- Manual canonical docs: `~/.openclaw/skills/brainx/knowledge/`
+- Primary runtime output per agent: plugin-owned working memory + guarded recall inside prompt assembly
+- Legacy runtime artifacts: `BRAINX_CONTEXT.md`, `brainx-topics/`, and the BrainX block inside `MEMORY.md`
+- Persistent store: PostgreSQL `brainx`
+
+Rules:
+
+1. `brainx.md` is owned by the skill, not by workspaces.
+2. `BRAINX_CONTEXT.md` and `brainx-topics/` are legacy workspace artifacts, generated only when the compatibility hook path is intentionally used.
+3. `knowledge/` is the canonical manual documentary layer and is not replaced by runtime context artifacts.
+4. If a workspace still contains a legacy `brainx.md`, treat it as compatibility residue, not as the source of truth.
+
+See `docs/CANONICAL_LAYOUT.md` for the full ownership map, routes, bootstrap contract, backup/restore rules, and anti-drift rules.
 
 ---
 
@@ -499,8 +624,8 @@ Agent sessions ──→ Fact Extractor (regex)     ──→ PostgreSQL
 
 ```bash
 # 1. Clone
-git clone https://github.com/Mdx2025/brainx-v5.git
-cd brainx-v5
+git clone https://github.com/Mdx2025/brainx.git
+cd brainx
 
 # 2. Install dependencies
 pnpm install  # or npm install
@@ -513,20 +638,20 @@ cp .env.example .env
 psql "$DATABASE_URL" -f sql/v3-schema.sql
 
 # 5. Verify
-./brainx-v5 health
+./brainx health
 ```
 
 ---
 
 ## Full CLI Reference
 
-The CLI (`lib/cli.js`) provides all commands to interact with BrainX. The entry point is the bash script `brainx-v5` (or the wrapper `brainx`).
+The CLI (`lib/cli.js`) provides all commands to interact with BrainX. The entry point is the bash script `brainx` (or the wrapper `brainx`).
 
 ### `health` — Check status
 
 ```bash
-./brainx-v5 health
-# BrainX V5 health: OK
+./brainx health
+# BrainX health: OK
 # - pgvector: yes
 # - brainx tables: 9
 ```
@@ -534,7 +659,7 @@ The CLI (`lib/cli.js`) provides all commands to interact with BrainX. The entry 
 ### `add` — Add memory
 
 ```bash
-./brainx-v5 add \
+./brainx add \
   --type decision \
   --content "Use text-embedding-3-small to reduce costs" \
   --context "project:openclaw" \
@@ -569,13 +694,13 @@ The `fact` type is a shortcut for `add --type fact --tier hot --category infrast
 
 ```bash
 # Register a service URL
-./brainx-v5 fact \
+./brainx fact \
   --content "Frontend my-project: https://my-app-frontend.example.com" \
   --context "project:my-project" \
   --importance 8
 
 # Register service config
-./brainx-v5 fact \
+./brainx fact \
   --content "Service 'my-api' → port 3001, branch main" \
   --context "project:my-project" \
   --importance 7 \
@@ -594,23 +719,66 @@ The `fact` type is a shortcut for `add --type fact --tier hot --category infrast
 
 ```bash
 # All facts
-./brainx-v5 facts
+./brainx facts
 
 # Filter by context
-./brainx-v5 facts --context "project:my-project"
+./brainx facts --context "project:my-project"
 
 # Limit results
-./brainx-v5 facts --limit 5
+./brainx facts --limit 5
+```
+
+### `runtime-report` — Audit runtime injection signal
+
+Read-only report over `brainx_runtime_injections`. It reports strict hard
+reference signal and softer contextual signal separately.
+
+```bash
+./brainx runtime-report --days 7
+./brainx runtime-report --days 7 --json
+```
+
+Key fields:
+- `hard_signal_ratio_pct` = `sum(referenced_count) / sum(selected_count)`
+- `soft_signal_ratio_pct` = `sum(soft_referenced_count) / sum(selected_count)`
+- per-agent and per-surface selected/hard/soft counts
+
+### `explain` — Inspect one runtime injection decision
+
+Read-only inspection for prompt-time BrainX decisions. Use it to debug what
+surface fired, what router decision was recorded, what memories were selected,
+and whether they were later hard/soft referenced.
+
+```bash
+./brainx explain --id <runtime_injection_id>
+./brainx explain --session <session_id> --limit 3
+./brainx explain --sessionKey <session_key> --limit 3 --json
+./brainx explain --agent coder --limit 1
+```
+
+### `event` — Deterministic forensic ledger
+
+For important fixes, incidents, audits, decisions, handoffs, and deployments,
+use the Event Ledger alongside semantic memories. It answers "what happened,
+when, where, with which evidence?" without relying only on semantic recall.
+
+```bash
+./brainx event add --type fix --project brainx --domain observability \
+  --title "Runtime report corrected" \
+  --summary "Corrected hard/soft signal metrics and validated tests"
+
+./brainx event search --project brainx --domain observability --from 2026-05-01 --to 2026-05-02
+./brainx event show --id evt_20260501_brainx_runtime_observability_explain_cli
 ```
 
 ### `feature` — Shortcut for feature requests
 
 ```bash
 # Save a feature request
-./brainx-v5 feature "Add webhook support for real-time notifications"
+./brainx feature "Add webhook support for real-time notifications"
 
 # With project context
-./brainx-v5 feature --content "Dark mode for dashboard" --context "project:control-panel" --importance 8
+./brainx feature --content "Dark mode for dashboard" --context "project:control-panel" --importance 8
 ```
 
 Shortcut for: `add --type feature_request --tier warm --importance 6 --category feature_request`
@@ -619,19 +787,19 @@ Shortcut for: `add --type feature_request --tier warm --importance 6 --category 
 
 ```bash
 # All feature requests
-./brainx-v5 features
+./brainx features
 
 # Filter by status
-./brainx-v5 features --status pending
+./brainx features --status pending
 
 # Filter by context
-./brainx-v5 features --context "project:my-project" --limit 10
+./brainx features --context "project:my-project" --limit 10
 ```
 
 ### `search` — Semantic search
 
 ```bash
-./brainx-v5 search \
+./brainx search \
   --query "deploy strategy" \
   --limit 10 \
   --minSimilarity 0.15 \
@@ -649,7 +817,7 @@ Shortcut for: `add --type feature_request --tier warm --importance 6 --category 
 ### `inject` — Get context ready for prompts
 
 ```bash
-./brainx-v5 inject \
+./brainx inject \
   --query "what did we decide about the deploy?" \
   --limit 8 \
   --minScore 0.25 \
@@ -680,11 +848,11 @@ Another relevant memory...
 
 ```bash
 # Resolve a memory
-./brainx-v5 resolve --id m_123 --status resolved \
+./brainx resolve --id m_123 --status resolved \
   --resolutionNotes "Patched retry backoff"
 
 # Promote all memories of a pattern
-./brainx-v5 resolve \
+./brainx resolve \
   --patternKey retry.429.swallow \
   --status promoted \
   --promotedTo docs/runbooks/retry.md \
@@ -694,24 +862,24 @@ Another relevant memory...
 ### `promote-candidates` — View promotion candidates
 
 ```bash
-./brainx-v5 promote-candidates --json
-./brainx-v5 promote-candidates --minRecurrence 3 --days 30 --limit 10
+./brainx promote-candidates --json
+./brainx promote-candidates --minRecurrence 3 --days 30 --limit 10
 ```
 
 ### `lifecycle-run` — Auto-promote/degrade memories
 
 ```bash
 # Dry run first
-./brainx-v5 lifecycle-run --dryRun --json
+./brainx lifecycle-run --dryRun --json
 
 # Execute
-./brainx-v5 lifecycle-run --json
+./brainx lifecycle-run --json
 ```
 
 ### `metrics` — Operational KPIs
 
 ```bash
-./brainx-v5 metrics --days 30 --topPatterns 10 --json
+./brainx metrics --days 30 --topPatterns 10 --json
 ```
 
 Returns:
@@ -899,10 +1067,10 @@ The automatic lifecycle manager evaluates memories and decides on actions:
 
 ```bash
 # See what it would do without executing
-./brainx-v5 lifecycle-run --dryRun --json
+./brainx lifecycle-run --dryRun --json
 
 # Execute promotions/degradations
-./brainx-v5 lifecycle-run --json
+./brainx lifecycle-run --json
 ```
 
 Flags: `--promoteMinRecurrence`, `--promoteDays`, `--degradeDays`, `--lowImportanceMax`, `--lowAccessMax`
@@ -977,7 +1145,7 @@ The metadata in the `[sim:... score:... ...]` header allows the agent to evaluat
 
 #### Auto-Inject Hook: From engine to agent
 
-The `hook/handler.js` hook uses the injection engine to automatically create `BRAINX_CONTEXT.md`:
+The `hook/handler.js` hook uses the injection engine to write runtime context files inside the agent workspace:
 
 ```
 Event agent:bootstrap
@@ -989,45 +1157,54 @@ Event agent:bootstrap
      │
      ├─ Section 2: brainx inject → Agent's own memories (context=agent:NAME, imp≥6)
      │
-     ├─ Section 3: brainx inject → Team memories (imp≥8, no context filter)
+     ├─ Section 3: brainx inject → High-signal team memories (facts/decisions/gotchas; `learning` excluded by default)
      │
      ▼
-  BRAINX_CONTEXT.md generated → Agent reads it as Project Context
+  Legacy compatibility artifacts updated if hook path is enabled
+  (`MEMORY.md`, `brainx-topics/*.md`, `BRAINX_CONTEXT.md`)
 ```
 
 **Hook telemetry:** Each injection records in `brainx_pilot_log`:
 - Agent, own memories, team memories, total chars generated
 
+**Operational rule:** injected memories are for orientation and hypothesis-building. They do not outrank code, runtime, DB, logs, tests, screenshots, or direct user feedback.
+
+**Canonical rule:** `brainx.md` is the stable guide owned by the skill (`~/.openclaw/skills/brainx/brainx.md`). It is not generated by the hook and must not be treated as a per-workspace source of truth.
+
 ### Memory Store Engine
 
 **Module:** `lib/openai-rag.js` → `storeMemory()`
 
-Storage is NOT a simple INSERT. It's a 6-step pipeline inside a transaction:
+Storage is NOT a simple INSERT. It's a 7-step pipeline inside a transaction:
 
 ```
 New memory
      │
      ▼
-  1. PII Scrubbing          ← scrubTextPII() on content and context
+  1. Quality gate           ← assessMemoryQuality() skips ack/noise/placeholders,
+     │                        downgrades borderline signal before embeddings
+     ▼
+  2. PII Scrubbing          ← scrubTextPII() on content and context
      │
      ▼
-  2. Tag merging             ← mergeTagsWithMetadata() adds pii:redacted tags if applicable
+  3. Tag merging             ← mergeTagsWithMetadata() adds pii:redacted + quality tags
      │
      ▼
-  3. Embedding               ← embed("type: content [context: ctx]")
+  4. Embedding               ← embed("type: content [context: ctx]")
      │
      ▼
-  4. Dedup check             ← By pattern_key OR by cosine similarity (threshold 0.92)
+  5. Dedup check             ← By pattern_key OR by cosine similarity (threshold 0.92)
      │                         deriveMergePlan() decides: merge vs. create new
      ▼
-  5. UPSERT                  ← INSERT ... ON CONFLICT DO UPDATE (transactional)
+  6. UPSERT                  ← INSERT ... ON CONFLICT DO UPDATE (transactional)
      │                         Preserves first_seen, increments recurrence, updates last_seen
      ▼
-  6. Pattern upsert          ← upsertPatternRecord() updates brainx_patterns
+  7. Pattern upsert          ← upsertPatternRecord() updates brainx_patterns
      │
      ▼
   Return metadata            ← {id, pattern_key, recurrence_count, pii_scrub_applied,
-                                 redacted, redaction_reasons, dedupe_merged, dedupe_method}
+                                 redacted, redaction_reasons, quality_action, quality_reason,
+                                 dedupe_merged, dedupe_method}
 ```
 
 #### Lifecycle normalization (`normalizeLifecycle`)
@@ -1036,6 +1213,22 @@ Before storing, each memory goes through normalization that:
 - Maps camelCase ↔ snake_case fields (`firstSeen` → `first_seen`)
 - Assigns defaults (`status: 'pending'`, timestamps to NOW())
 - Preserves existing fields if not provided
+
+#### Quality gate (`assessMemoryQuality`)
+
+Before embedding, BrainX applies an LLM-free heuristic gate:
+- Skips exact noise (`HEARTBEAT_OK`, `NO_REPLY`, bare acknowledgements)
+- Skips vague placeholders (`Need to review this`, `revisar esto`)
+- Skips repetitive or symbol-only garbage
+- Downgrades borderline short memories by capping importance/confidence
+- Adds `quality:*` tags so cleanup/reporting can reason about what happened
+
+```bash
+BRAINX_STRICT_QUALITY=false            # reject instead of downgrading/skipping silently
+BRAINX_QUALITY_MIN_CHARS=20            # default minimum useful length
+BRAINX_QUALITY_MIN_WORDS=4             # default minimum useful word count
+BRAINX_QUALITY_BORDERLINE_CHARS=40     # below this, short memories need stronger signal
+```
 
 #### Impact score for patterns (`tierImpact`)
 
@@ -1267,11 +1460,140 @@ node scripts/memory-bridge.js --dry-run --verbose
 
 ---
 
+### `import-knowledge-md.js` — Curated Knowledge Base Import
+
+**File:** `scripts/import-knowledge-md.js`
+
+Imports curated documents from `knowledge/` into BrainX as a separate documentary layer.
+
+- `knowledge/<domain>/...` = manual canonical docs
+
+Canonical knowledge is imported with stronger provenance than `markdown_import`, so it can participate in retrieval as durable reference material instead of simple changelog.
+
+#### Usage
+
+```bash
+# canonical only
+node scripts/import-knowledge-md.js
+
+# one domain
+node scripts/import-knowledge-md.js --domain finanzas --dry-run --verbose
+```
+
+#### Notes
+
+1. `README.md`, `INDEX.md`, and files prefixed with `_` are not indexed
+2. The default retrieval scope for this layer is `knowledge:<domain>`
+3. Topic/file identity is preserved in tags and `source_path`
+4. Re-importing a file obsoletes chunks removed from the source
+
+---
+
+### `knowledge-sync.js` — Smart Knowledge Sync
+
+**File:** `scripts/knowledge-sync.js`
+
+High-level sync command for `knowledge/`.
+
+- Detects manual changes only
+- Re-imports canonical docs only when needed
+- Refreshes `BRAINX:AUTO` blocks afterwards
+- Stores state so cron can run safely without looping forever
+
+#### Usage
+
+```bash
+./brainx knowledge-sync
+./brainx knowledge-sync --dry-run --json
+```
+
+#### Notes
+
+1. This is the recommended manual command
+2. It ignores auto-block-only changes when deciding whether to sync
+3. `knowledge-import` remains available as a lower-level tool
+
+---
+
+### `knowledge-locate.js` — Canonical Doc Locator
+
+**File:** `scripts/knowledge-locate.js`
+
+Task-oriented locator for `knowledge/`.
+
+- Searches BrainX once
+- Keeps only canonical knowledge hits
+- Groups them by source file
+- Returns the exact `.md` files an agent should read completely before drafting
+
+#### Usage
+
+```bash
+./brainx knowledge-locate --query "draft a sponsorship reply"
+./brainx knowledge-locate --query "prepare a premium website proposal" --json
+```
+
+#### Notes
+
+1. Use this when the task depends on house knowledge, playbooks, pricing, proposals, emails, or brand/process docs
+2. It is lighter than manually scanning the whole `knowledge/` tree
+3. `knowledge-sync` keeps the DB fresh; `knowledge-locate` decides which files matter for the task
+
+---
+
+### `new-knowledge-topic.js` — Knowledge Topic Scaffolder
+
+Creates a new canonical topic file inside `knowledge/<domain>/` with:
+
+- frontmatter
+- manual sections
+- `BRAINX:AUTO` markers so BrainX can write only inside the auto-managed zone
+
+Example:
+
+```bash
+./brainx knowledge-new --category development --name nextjs-server-actions
+```
+
+---
+
+### `sync-knowledge-auto-blocks.js` — Auto Block Sync
+
+Refreshes only the auto-managed block inside knowledge docs. This keeps the file simple:
+
+- manual content stays editable by Marcelo
+- BrainX writes only between `<!-- BRAINX:AUTO:START -->` and `<!-- BRAINX:AUTO:END -->`
+- importer ignores that block to avoid feedback loops
+
+Example:
+
+```bash
+./brainx knowledge-auto-sync
+./brainx knowledge-auto-sync --domain branding --dry-run --verbose
+```
+
+---
+
+### `seed-knowledge-library.js` — Knowledge Seed Generator
+
+Creates a realistic first-pass knowledge base across the current taxonomy. It is intended to avoid empty category folders and give Marcelo a sane starting point for manual curation.
+
+Example:
+
+```bash
+./brainx knowledge-seed --dry-run
+./brainx knowledge-seed
+```
+
+---
+
 ### `cross-agent-learning.js` — Cross-Agent Propagation
 
 **File:** `scripts/cross-agent-learning.js`
 
 Propagates high-importance learnings and gotchas from an individual agent to the global context, so **all** agents benefit from shared discoveries.
+
+This does **not** mean every propagated learning is auto-injected at bootstrap. Global learnings remain available for explicit recall, while bootstrap injection stays narrower to reduce drift.
 
 #### Usage
 
@@ -1349,7 +1671,7 @@ Saved memories are tagged `auto-harvested,error` with type `gotcha`.
 
 **File:** `scripts/auto-promoter.js`
 
-Detects high-recurrence patterns and generates suggestions for which workspace file they should be promoted to (AGENTS.md, TOOLS.md, or SOUL.md). **Does not write to workspace files** — outputs suggestions only, which are then consumed by `promotion-applier.js`.
+Detects high-recurrence patterns and generates suggestions for which section of the canonical `agent-core` reference file they should be promoted to. **Does not write to workspace files** — outputs suggestions only, which are then consumed by `promotion-applier.js`.
 
 #### Usage
 
@@ -1364,14 +1686,14 @@ node scripts/auto-promoter.js --json
 node scripts/auto-promoter.js --save
 
 # Custom thresholds
-node scripts/auto-promoter.js --min-recurrence 5 --days 14
+node scripts/auto-promoter.js --min-recurrence 6 --days 14
 ```
 
 #### Arguments
 
 | Argument | Default | Description |
 |----------|---------|-------------|
-| `--min-recurrence` | 3 | Minimum pattern recurrence to qualify |
+| `--min-recurrence` | 6 | Minimum pattern recurrence to qualify |
 | `--days` | 30 | Time window |
 | `--json` | false | JSON output |
 | `--save` | false | Save suggestions as BrainX memories (tag: `promotion-suggestion`) |
@@ -1379,11 +1701,11 @@ node scripts/auto-promoter.js --min-recurrence 5 --days 14
 
 #### Classification Logic
 
-| Target File | Triggers |
+| Target Section | Triggers |
 |-------------|----------|
-| `TOOLS.md` | Infrastructure, CLI, API, config, integration patterns |
-| `SOUL.md` | Behavioral, style, communication patterns |
-| `AGENTS.md` | Workflow, execution, delegation patterns |
+| `Tools & Infrastructure` | Infrastructure, CLI, API, config, integration patterns |
+| `Behavior & Tone` | Behavioral, style, communication patterns |
+| `Workflow & Execution` | Workflow, execution, delegation patterns |
 
 ---
 
@@ -1391,53 +1713,55 @@ node scripts/auto-promoter.js --min-recurrence 5 --days 14
 
 **File:** `scripts/promotion-applier.js`
 
-Reads pending promotion suggestions (saved by `auto-promoter.js` with tag `promotion-suggestion`), distills each suggestion via LLM (gpt-4.1-mini) into a concise rule, and writes the final rules into the target workspace files under the `## Auto-Promoted Rules` section. This is the last-mile step that closes the learning → rule loop.
+Reads pending promotion suggestions (saved by `auto-promoter.js` with tag `promotion-suggestion`), distills each suggestion via LLM (gpt-4.1-mini) into a concise rule, and writes the final rules into the canonical file `~/.openclaw/skills/agent-core/references/BRAINX_PROMOTED_RULES.md` only when an explicit review gate is opened.
 
 #### What it does
 
 1. Queries BrainX for memories tagged `promotion-suggestion` with `status = pending`
-2. For each suggestion, calls gpt-4.1-mini to distill it into a 1-2 sentence actionable rule
-3. Appends the rule to the `## Auto-Promoted Rules` section in the target workspace file (AGENTS.md, TOOLS.md, or SOUL.md)
-4. Marks the suggestion memory as `status = promoted`
-5. Reports applied, skipped, and failed promotions
+2. Ignores obsolete or superseded suggestions
+3. For each suggestion, calls gpt-4.1-mini to distill it into a 1-2 sentence actionable rule
+4. Appends the rule to the target section in `~/.openclaw/skills/agent-core/references/BRAINX_PROMOTED_RULES.md` only when `--force-apply` or `BRAINX_PROMOTION_AUTO_APPLY=true` is present
+5. Marks the suggestion memory as `status = promoted`
+6. Reports applied, skipped, and failed promotions
 
 #### Usage
 
 ```bash
-# Apply all pending promotions (default)
-node scripts/promotion-applier.js --apply
+# Intentionally apply pending promotions after review
+node scripts/promotion-applier.js --apply --force-apply
 
 # Dry run (show what would be applied without writing)
 node scripts/promotion-applier.js --dry-run --verbose
 
 # Limit number of promotions to apply
-node scripts/promotion-applier.js --apply --limit 5
+node scripts/promotion-applier.js --apply --force-apply --limit 5
 
 # Only apply patterns with high recurrence
-node scripts/promotion-applier.js --apply --min-recurrence 10
+node scripts/promotion-applier.js --apply --force-apply --min-recurrence 10
 
 # Verbose output
-node scripts/promotion-applier.js --apply --verbose
+node scripts/promotion-applier.js --apply --force-apply --verbose
 ```
 
 #### Arguments
 
 | Argument | Default | Description |
 |----------|---------|-------------|
-| `--apply` | false | Execute the promotion (write to workspace files) |
+| `--apply` | false | Execute the promotion (write to the canonical reference file) |
+| `--force-apply` | false | Required for intentional writes unless `BRAINX_PROMOTION_AUTO_APPLY=true` |
 | `--dry-run` | false | Simulate without writing. Shows what rules would be added |
 | `--limit` | 20 | Maximum number of promotions to apply per run |
-| `--min-recurrence` | 5 | Minimum recurrence count for a suggestion to qualify |
+| `--min-recurrence` | 6 | Minimum recurrence count for a suggestion to qualify |
 | `--verbose` | false | Print each rule being written |
 
 #### Example output
 
 ```
 [promotion-applier] Found 3 pending promotion suggestions
-[promotion-applier] Distilling: "Use plugin v2 for WordPress publishing" → target: TOOLS.md
-[promotion-applier] Writing rule to TOOLS.md
-[promotion-applier] Distilling: "Always verify auth token before deploy" → target: AGENTS.md
-[promotion-applier] Writing rule to AGENTS.md
+[promotion-applier] Distilling: "Use plugin v2 for WordPress publishing" → target: Tools & Infrastructure
+[promotion-applier] Writing rule to BRAINX_PROMOTED_RULES.md
+[promotion-applier] Distilling: "Always verify auth token before deploy" → target: Workflow & Execution
+[promotion-applier] Writing rule to BRAINX_PROMOTED_RULES.md
 [promotion-applier] Done: 2 applied, 1 skipped (below min-recurrence), 0 failed
 ```
 
@@ -1447,6 +1771,7 @@ node scripts/promotion-applier.js --apply --verbose
 |---------------------|---------|-------------|
 | `BRAINX_DISTILLER_MODEL` | `gpt-4.1-mini` | LLM model for distillation |
 | `OPENAI_API_KEY` | — | **Required** |
+| `BRAINX_PROMOTION_AUTO_APPLY` | `false` | Allows unattended `--apply` runs when explicitly enabled |
 | `BRAINX_PROMOTER_MIN_RECURRENCE` | `5` | Default min recurrence |
 
 ---
@@ -1617,44 +1942,52 @@ node scripts/dedup-supersede.js
 | `BRAINX_INJECT_MAX_TOTAL_CHARS` | `12000` | Max total chars in injection output |
 | `BRAINX_INJECT_MIN_SCORE` | `0.25` | Minimum score gate for injection |
 | `BRAINX_DISTILLER_MODEL` | `gpt-4.1-mini` | Default model for Memory Distiller and Promotion Applier |
-| `BRAINX_PROMOTER_MIN_RECURRENCE` | `5` | Default minimum recurrence for auto-promotion |
+| `BRAINX_PROMOTER_MIN_RECURRENCE` | `6` | Default minimum recurrence for auto-promotion |
+| `BRAINX_PROMOTION_AUTO_APPLY` | `false` | Allows `promotion-applier.js --apply` to write without `--force-apply` |
+| `BRAINX_CONSOLIDATION_MIN_SIMILARITY` | `0.82` | Default similarity threshold for weekly semantic consolidation |
+| `BRAINX_CONSOLIDATION_MIN_AGE_DAYS` | `7` | Minimum memory age before consolidation is allowed |
+| `BRAINX_CONSOLIDATION_MAX_SEEDS` | `600` | Max eligible seed memories inspected per weekly run |
+| `BRAINX_CONSOLIDATION_WEEKDAY_UTC` | `0` | UTC weekday for weekly consolidation (`0` = Sunday) |
 
 ---
 
 ## Cron Jobs Setup
 
-The recommended setup uses the **15-step consolidated daily pipeline** managed by OpenClaw cron. Individual cron entries are still supported for granular control.
+The recommended setup uses the current **hybrid daily/midweek/weekly pipeline** managed by OpenClaw cron: 14 daily steps every day, 2 additional Wednesday/Sunday steps, and 8 deeper Sunday-only maintenance steps. Individual cron entries are historical unless documented in [`docs/CRON.md`](docs/CRON.md).
 
 ### Consolidated Pipeline (recommended)
 
-Configure in `~/.openclaw/cron/jobs.json` as a single daily job named `BrainX Daily Core Pipeline V5` that runs all 15 steps sequentially (bootstrap → lifecycle → distiller → harvester → bridge → auto-distiller → consolidation → cross-agent → contradiction → markdown-harvester → error-harvester → auto-promoter → promotion-applier → memory-enforcer → audit).
+Configure in `~/.openclaw/cron/jobs.json` as a daily job named `BrainX Daily Core Pipeline V5`. It runs the wrapper `/home/clawd/.openclaw/skills/brainx/cron/brainx-daily-core-wrapper.sh`; the wrapper, not the prompt text, is the source of truth for step count and cadence.
 
-### Individual Cron Entries (add to `crontab -e`)
+### Individual Cron Entries (historical reference only)
+
+These examples are not the active scheduler on `/home/clawd`. The current host uses the consolidated OpenClaw cron wrapper documented in [`docs/CRON.md`](docs/CRON.md) and [`docs/RUNTIME_STATUS.md`](docs/RUNTIME_STATUS.md).
 
 ```bash
 # Every 4h: Session Harvester
-0 */4 * * * cd /path/to/brainx-v5 && node scripts/session-harvester.js >> logs/harvester.log 2>&1
+0 */4 * * * cd /path/to/brainx && node scripts/session-harvester.js >> logs/harvester.log 2>&1
 
 # Every 6h: Memory Distiller + Fact Extractor + Memory Bridge
-0 */6 * * * cd /path/to/brainx-v5 && node scripts/memory-distiller.js >> logs/distiller.log 2>&1
-30 */6 * * * cd /path/to/brainx-v5 && node scripts/fact-extractor.js >> logs/fact-extractor.log 2>&1
-0 1,7,13,19 * * * cd /path/to/brainx-v5 && node scripts/memory-bridge.js >> logs/bridge.log 2>&1
+0 */6 * * * cd /path/to/brainx && node scripts/memory-distiller.js >> logs/distiller.log 2>&1
+30 */6 * * * cd /path/to/brainx && node scripts/fact-extractor.js >> logs/fact-extractor.log 2>&1
+0 1,7,13,19 * * * cd /path/to/brainx && node scripts/memory-bridge.js >> logs/bridge.log 2>&1
 
 # Daily: Cross-agent learning + Contradiction detection + Quality scoring + Promotions
-0 3 * * * cd /path/to/brainx-v5 && node scripts/cross-agent-learning.js >> logs/cross-agent.log 2>&1
-30 3 * * * cd /path/to/brainx-v5 && node scripts/contradiction-detector.js >> logs/contradiction.log 2>&1
-0 4 * * * cd /path/to/brainx-v5 && node scripts/quality-scorer.js >> logs/quality.log 2>&1
-15 4 * * * cd /path/to/brainx-v5 && node scripts/auto-promoter.js --save >> logs/auto-promoter.log 2>&1
-30 4 * * * cd /path/to/brainx-v5 && node scripts/promotion-applier.js --apply >> logs/promotion-applier.log 2>&1
-45 4 * * * cd /path/to/brainx-v5 && bash scripts/backup-brainx.sh >> logs/backup.log 2>&1
+0 3 * * * cd /path/to/brainx && node scripts/cross-agent-learning.js >> logs/cross-agent.log 2>&1
+30 3 * * * cd /path/to/brainx && node scripts/contradiction-detector.js >> logs/contradiction.log 2>&1
+0 4 * * * cd /path/to/brainx && node scripts/quality-scorer.js >> logs/quality.log 2>&1
+15 4 * * * cd /path/to/brainx && node scripts/auto-promoter.js --save >> logs/auto-promoter.log 2>&1
+30 4 * * * cd /path/to/brainx && node scripts/promotion-applier.js >> logs/promotion-applier.log 2>&1
+45 4 * * * cd /path/to/brainx && bash scripts/backup-brainx.sh >> logs/backup.log 2>&1
 
-# Weekly: Context packs + Cleanup + Dedup
-0 5 * * 0 cd /path/to/brainx-v5 && node scripts/context-pack-builder.js >> logs/packs.log 2>&1
-30 5 * * 0 cd /path/to/brainx-v5 && node scripts/cleanup-low-signal.js >> logs/cleanup.log 2>&1
-0 6 * * 0 cd /path/to/brainx-v5 && node scripts/dedup-supersede.js >> logs/dedup.log 2>&1
+# Weekly: Semantic consolidation + Context packs + Cleanup + Dedup
+45 4 * * 0 cd /path/to/brainx && bash cron/weekly-semantic-consolidation.sh >> logs/consolidation.log 2>&1
+0 5 * * 0 cd /path/to/brainx && node scripts/context-pack-builder.js >> logs/packs.log 2>&1
+30 5 * * 0 cd /path/to/brainx && node scripts/cleanup-low-signal.js >> logs/cleanup.log 2>&1
+0 6 * * 0 cd /path/to/brainx && node scripts/dedup-supersede.js >> logs/dedup.log 2>&1
 
 # Health check every 30min
-*/30 * * * * cd /path/to/brainx-v5 && bash cron/health-check.sh >> logs/health.log 2>&1
+*/30 * * * * cd /path/to/brainx && bash cron/health-check.sh >> logs/health.log 2>&1
 ```
 
 ---

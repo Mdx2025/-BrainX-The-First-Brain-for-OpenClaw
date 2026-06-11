@@ -20,6 +20,7 @@ require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') }
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { isOpsAgent } = require('../lib/ops-agents');
 
 const AGENTS_DIR = path.join(process.env.HOME || '', '.openclaw', 'agents');
 const BRAINX_DIR = path.join(__dirname, '..');
@@ -50,7 +51,7 @@ function findRecentSessions(hoursAgo, agentFilter) {
 
   const agents = fs.readdirSync(AGENTS_DIR).filter(d => {
     if (agentFilter) return d === agentFilter;
-    return !['heartbeat', 'monitor'].includes(d);
+    return !isOpsAgent(d);
   });
 
   for (const agent of agents) {

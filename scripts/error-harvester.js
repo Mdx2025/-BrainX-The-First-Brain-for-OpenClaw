@@ -20,6 +20,7 @@ try {
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
+const { isOpsAgent } = require('../lib/ops-agents');
 
 // Check multiple possible session log locations
 const HOME = process.env.HOME || '/home/clawd';
@@ -27,7 +28,7 @@ const SESSION_DIRS = [
   path.join(HOME, '.openclaw', 'agents'),  // agent session .jsonl files
   path.join(HOME, '.acpx', 'sessions'),     // ACP session logs
 ];
-const BRAINX_CLI = path.join(__dirname, '..', 'brainx-v5');
+const BRAINX_CLI = path.join(__dirname, '..', 'brainx');
 
 function parseArgs(argv) {
   const args = { hours: 24, dryRun: false, verbose: false };
@@ -145,6 +146,49 @@ function dedupeErrors(errors) {
   });
 }
 
+// Severity classifier (2026-04-14): scales importance + tier per error type.
+// Previously every error stored with importance=6 regardless of severity,
+// which made FATAL look identical to a transient ECONNREFUSED in retrieval.
+function classifyErrorSeverity(err) {
+  const haystack = `${err.message || ''} ${err.snippet || ''} ${err.pattern || ''}`;
+
+  // Critical: system-fatal, broken state, oom
+  if (/\b(FATAL|CRITICAL|SEGFAULT|SIGSEGV|out of memory|OOMKilled|panic[:!])\b/i.test(haystack)) {
+    return { importance: 8, tier: 'hot', severity: 'critical' };
+  }
+
+  // High: code bugs, missing deps, exit codes that suggest real failures
+  if (/\b(TypeError|ReferenceError|SyntaxError|RangeError|Cannot find module|Module not found|UnhandledPromiseRejection)\b/.test(haystack)) {
+    return { importance: 7, tier: 'hot', severity: 'high' };
+  }
+
+  // Exit-code based: code 137 (SIGKILL/OOM), 139 (SIGSEGV) → high; 2 (misuse) → high; 1 (generic) → medium
+  if (err.type === 'exit_code') {
+    if (err.code === 137 || err.code === 139 || err.code === 134) {
+      return { importance: 7, tier: 'hot', severity: 'high' };
+    }
+    if (err.code === 2 || err.code === 126 || err.code === 127) {
+      // 2 = misuse, 126 = not executable, 127 = command not found
+      return { importance: 6, tier: 'warm', severity: 'medium' };
+    }
+    // generic non-zero exit (1, 3-125, 128+)
+    return { importance: 6, tier: 'warm', severity: 'medium' };
+  }
+
+  // Medium: permission/path issues — important when persistent, noisy when transient
+  if (/\b(EPERM|EACCES|ENOENT|permission denied|access denied)\b/i.test(haystack)) {
+    return { importance: 6, tier: 'warm', severity: 'medium' };
+  }
+
+  // Low: network transients, command-not-found-with-fix
+  if (/\b(ECONNREFUSED|ETIMEDOUT|ENETUNREACH|ENOTFOUND|command not found)\b/i.test(haystack)) {
+    return { importance: 4, tier: 'warm', severity: 'low' };
+  }
+
+  // Default: matched a generic Error|ERROR pattern, no specific signal
+  return { importance: 5, tier: 'warm', severity: 'medium' };
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   console.log(`🔍 Scanning session logs from last ${args.hours}h...`);
@@ -162,6 +206,13 @@ async function main() {
   }
 
   allErrors = dedupeErrors(allErrors);
+  // OPS_AGENTS_20260502: drop errors sourced from ops-only agents.
+  const beforeOpsFilter = allErrors.length;
+  allErrors = allErrors.filter((err) => !isOpsAgent(err.agent));
+  const opsDropped = beforeOpsFilter - allErrors.length;
+  if (opsDropped > 0) {
+    console.log(`  Dropped ${opsDropped} error(s) from ops-only agents`);
+  }
   console.log(`  Extracted ${allErrors.length} unique errors`);
 
   if (allErrors.length === 0) {
@@ -169,6 +220,7 @@ async function main() {
     return;
   }
 
+  const severityCounts = { critical: 0, high: 0, medium: 0, low: 0 };
   let saved = 0;
   for (const err of allErrors) {
     const content = err.command
@@ -177,8 +229,11 @@ async function main() {
 
     if (content.length < 20) continue;
 
+    const { importance, tier, severity } = classifyErrorSeverity(err);
+    severityCounts[severity] = (severityCounts[severity] || 0) + 1;
+
     if (args.verbose || args.dryRun) {
-      console.log(`  ${args.dryRun ? '[DRY-RUN]' : '[SAVE]'} agent=${err.agent} → ${content.slice(0, 100)}...`);
+      console.log(`  ${args.dryRun ? '[DRY-RUN]' : '[SAVE]'} severity=${severity} imp=${importance} agent=${err.agent} → ${content.slice(0, 100)}...`);
     }
 
     if (!args.dryRun) {
@@ -187,11 +242,11 @@ async function main() {
           'add',
           '--type', 'gotcha',
           '--content', content.slice(0, 2000),
-          '--tier', 'warm',
-          '--importance', '6',
+          '--tier', tier,
+          '--importance', String(importance),
           '--category', 'error',
           '--agent', err.agent,
-          '--tags', 'auto-harvested,error',
+          '--tags', `auto-harvested,error,severity:${severity}`,
           '--sourceKind', 'tool_verified',
         ], { encoding: 'utf8', timeout: 15000 });
         saved++;
@@ -204,6 +259,7 @@ async function main() {
   }
 
   console.log(`${args.dryRun ? '🏃 Dry run:' : '✅'} ${saved} errors ${args.dryRun ? 'would be' : ''} saved to BrainX`);
+  console.log(`   Severity breakdown: critical=${severityCounts.critical} high=${severityCounts.high} medium=${severityCounts.medium} low=${severityCounts.low}`);
 }
 
 main().catch(e => {

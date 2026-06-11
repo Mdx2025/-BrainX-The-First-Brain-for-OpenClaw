@@ -33,8 +33,8 @@ if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
     echo "  --help     Mostrar esta ayuda"
     echo ""
     echo "Ejemplo:"
-    echo "  $0 brainx_v5_backup_20260309.tar.gz"
-    echo "  $0 brainx_v5_backup_20260309.tar.gz --force --skip-db"
+    echo "  $0 brainx_backup_20260309.tar.gz"
+    echo "  $0 brainx_backup_20260309.tar.gz --force --skip-db"
     exit 0
 fi
 
@@ -121,7 +121,7 @@ if [ "$SKIP_DB" = false ]; then
     echo "📦 1/6 Restaurando base de datos PostgreSQL..."
     
     if command -v psql >/dev/null 2>&1; then
-        DB_FILE="$EXTRACTED_DIR/brainx_v5_database.sql"
+        DB_FILE="$EXTRACTED_DIR/brainx_database.sql"
         
         if [ -f "$DB_FILE" ]; then
             print_info "Archivo SQL encontrado ($(stat -c%s "$DB_FILE" | numfmt --to=iec))"
@@ -134,7 +134,7 @@ if [ "$SKIP_DB" = false ]; then
             if [ -z "${DATABASE_URL:-}" ]; then
                 print_warning "DATABASE_URL no configurado"
                 echo "   Por favor, configura DATABASE_URL en ~/.openclaw/.env antes de continuar"
-                echo "   Formato: postgresql://user:pass@host:5432/brainx_v5"
+                echo "   Formato: postgresql://user:pass@host:5432/brainx"
                 rm -rf "$BACKUP_DIR"
                 exit 1
             fi
@@ -144,11 +144,11 @@ if [ "$SKIP_DB" = false ]; then
                 print_info "Conexión a PostgreSQL exitosa"
                 
                 # Verificar si la base de datos existe
-                DB_EXISTS=$(psql "$DATABASE_URL" -t -c "SELECT 1 FROM pg_database WHERE datname='brainx_v5';" 2>/dev/null | tr -d '[:space:]')
+                DB_EXISTS=$(psql "$DATABASE_URL" -t -c "SELECT 1 FROM pg_database WHERE datname='brainx';" 2>/dev/null | tr -d '[:space:]')
                 
                 if [ "$DB_EXISTS" = "1" ]; then
                     if [ "$FORCE" = false ]; then
-                        print_warning "La base de datos brainx_v5 ya existe"
+                        print_warning "La base de datos brainx ya existe"
                         echo -n "   ¿Deseas sobrescribirla? [s/N]: "
                         read -r db_response
                         if [[ ! "$db_response" =~ ^[Ss]$ ]]; then
@@ -168,7 +168,7 @@ if [ "$SKIP_DB" = false ]; then
                         print_success "Base de datos restaurada"
                     fi
                 else
-                    print_info "Creando base de datos brainx_v5..."
+                    print_info "Creando base de datos brainx..."
                     psql "$DATABASE_URL" < "$DB_FILE" 2>/dev/null
                     print_success "Base de datos creada y restaurada"
                 fi
@@ -191,19 +191,19 @@ echo ""
 
 # 2. Restaurar skill de BrainX V5
 echo "📄 2/6 Restaurando skill BrainX V5..."
-SKILL_BACKUP="$EXTRACTED_DIR/config/brainx-v5-skill"
+SKILL_BACKUP="$EXTRACTED_DIR/config/brainx-skill"
 if [ -d "$SKILL_BACKUP" ]; then
-    if [ -d "${HOME}/.openclaw/skills/brainx-v5" ]; then
+    if [ -d "${HOME}/.openclaw/skills/brainx" ]; then
         if [ "$FORCE" = true ]; then
-            rm -rf "${HOME}/.openclaw/skills/brainx-v5"
-            cp -r "$SKILL_BACKUP" "${HOME}/.openclaw/skills/brainx-v5"
+            rm -rf "${HOME}/.openclaw/skills/brainx"
+            cp -r "$SKILL_BACKUP" "${HOME}/.openclaw/skills/brainx"
             print_success "Skill reemplazado"
         else
             print_warning "El skill ya existe"
             echo "   Usa --force para reemplazarlo"
         fi
     else
-        cp -r "$SKILL_BACKUP" "${HOME}/.openclaw/skills/brainx-v5"
+        cp -r "$SKILL_BACKUP" "${HOME}/.openclaw/skills/brainx"
         print_success "Skill restaurado"
     fi
 else
@@ -254,27 +254,62 @@ fi
 
 echo ""
 
-# 5. Restaurar brainx.md en workspaces
-echo "📝 5/6 Restaurando brainx.md en workspaces..."
+# 5. Restaurar docs runtime en workspaces
+echo "📝 5/6 Restaurando docs runtime de workspaces..."
 WORKSPACES_BACKUP="$EXTRACTED_DIR/workspaces"
+CONTEXT_BACKUP="$EXTRACTED_DIR/context"
 if [ -d "$WORKSPACES_BACKUP" ]; then
-    for file in "$WORKSPACES_BACKUP"/*_brainx.md; do
+    for file in "$WORKSPACES_BACKUP"/*_MEMORY.md; do
         if [ -f "$file" ]; then
-            # Extraer nombre del workspace
             filename=$(basename "$file")
-            ws_name=${filename%_brainx.md}
+            ws_name=${filename%_MEMORY.md}
             ws_dir="${HOME}/.openclaw/${ws_name}"
-            
+
             if [ -d "$ws_dir" ]; then
-                cp "$file" "$ws_dir/brainx.md"
-                echo "   ✅ Restaurado: $ws_name/brainx.md"
+                cp "$file" "$ws_dir/MEMORY.md"
+                echo "   ✅ Restaurado: $ws_name/MEMORY.md"
+            else
+                echo "   ⚠️  Workspace no existe: $ws_name"
+            fi
+        fi
+    done
+
+    for dir in "$WORKSPACES_BACKUP"/*_topics; do
+        if [ -d "$dir" ]; then
+            dirname_only=$(basename "$dir")
+            ws_name=${dirname_only%_topics}
+            ws_dir="${HOME}/.openclaw/${ws_name}"
+
+            if [ -d "$ws_dir" ]; then
+                mkdir -p "$ws_dir/brainx-topics"
+                cp "$dir/"*.md "$ws_dir/brainx-topics/" 2>/dev/null || true
+                echo "   ✅ Restaurado: $ws_name/brainx-topics/"
             else
                 echo "   ⚠️  Workspace no existe: $ws_name"
             fi
         fi
     done
 else
-    print_info "No hay archivos brainx.md en el backup"
+    print_info "No hay docs runtime en el backup"
+fi
+
+if [ -d "$CONTEXT_BACKUP" ]; then
+    for file in "$CONTEXT_BACKUP"/*_BRAINX_CONTEXT.md; do
+        if [ -f "$file" ]; then
+            filename=$(basename "$file")
+            ws_name=${filename%_BRAINX_CONTEXT.md}
+            ws_dir="${HOME}/.openclaw/${ws_name}"
+
+            if [ -d "$ws_dir" ]; then
+                cp "$file" "$ws_dir/BRAINX_CONTEXT.md"
+                echo "   ✅ Restaurado: $ws_name/BRAINX_CONTEXT.md"
+            else
+                echo "   ⚠️  Workspace no existe: $ws_name"
+            fi
+        fi
+    done
+else
+    print_info "No hay BRAINX_CONTEXT.md en el backup"
 fi
 
 echo ""
@@ -290,13 +325,13 @@ if [ -d "$WRAPPERS_BACKUP" ]; then
             ws_hooks_dir="${HOME}/.openclaw/${ws_name}/hooks"
             
             if [ -d "$ws_hooks_dir" ]; then
-                cp "$file" "$ws_hooks_dir/brainx-v5-wrapper.sh"
-                chmod +x "$ws_hooks_dir/brainx-v5-wrapper.sh"
-                echo "   ✅ Restaurado: $ws_name/hooks/brainx-v5-wrapper.sh"
+                cp "$file" "$ws_hooks_dir/brainx-wrapper.sh"
+                chmod +x "$ws_hooks_dir/brainx-wrapper.sh"
+                echo "   ✅ Restaurado: $ws_name/hooks/brainx-wrapper.sh"
             else
                 mkdir -p "$ws_hooks_dir" 2>/dev/null || true
-                cp "$file" "$ws_hooks_dir/brainx-v5-wrapper.sh" 2>/dev/null || true
-                chmod +x "$ws_hooks_dir/brainx-v5-wrapper.sh" 2>/dev/null || true
+                cp "$file" "$ws_hooks_dir/brainx-wrapper.sh" 2>/dev/null || true
+                chmod +x "$ws_hooks_dir/brainx-wrapper.sh" 2>/dev/null || true
             fi
         fi
     done
@@ -327,7 +362,7 @@ echo "   openclaw restart"
 echo "   # o: systemctl --user restart openclaw-gateway"
 echo ""
 echo "4. Verifica que BrainX V5 funciona:"
-echo "   cd ~/.openclaw/skills/brainx-v5"
+echo "   cd ~/.openclaw/skills/brainx"
 echo "   ./brainx health"
 echo ""
 echo "5. Prueba el hook de auto-inyección:"

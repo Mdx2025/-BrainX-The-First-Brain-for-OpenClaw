@@ -6,7 +6,7 @@ const rag = require('../lib/openai-rag');
     id: `test_${Date.now()}`,
     type: 'note',
     content: 'PostgreSQL connection uses DATABASE_URL on localhost. pgvector is enabled.',
-    context: 'brainx-v5',
+    context: 'brainx',
     tier: 'warm',
     agent: 'coder',
     importance: 5,

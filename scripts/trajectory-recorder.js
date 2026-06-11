@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * BrainX V5 — Trajectory Recorder
+ * BrainX — Trajectory Recorder
  *
  * Builds problem→solution trajectories from session logs
  * and stores them in brainx_trajectories with embeddings.
@@ -9,13 +9,18 @@
  *   node scripts/trajectory-recorder.js [--hours 24] [--max-sessions 10]
  */
 
-require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
-
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { Pool } = require('pg');
 const OpenAI = require('openai');
+const { isOpsAgent } = require('../lib/ops-agents');
+
+require('dotenv').config({
+  path: path.join(__dirname, '..', '.env'),
+  override: true,
+  quiet: true
+});
 
 // ── Config ──────────────────────────────────────────
 const DATABASE_URL = process.env.DATABASE_URL;
@@ -61,6 +66,13 @@ function saveTracking(tracking) {
   fs.writeFileSync(TRACKING_FILE, JSON.stringify(tracking, null, 2));
 }
 
+function shouldSkipProcessed(record) {
+  if (!record) return false;
+  if (record.failed) return false;
+  if (record.trajectories === 0 && record.skipped !== true) return false;
+  return true;
+}
+
 // ── Find recent sessions ──────────────────────────
 function findRecentSessions(hoursAgo, maxSessions) {
   const cutoff = Date.now() - (hoursAgo * 60 * 60 * 1000);
@@ -68,9 +80,7 @@ function findRecentSessions(hoursAgo, maxSessions) {
 
   if (!fs.existsSync(AGENTS_DIR)) return sessions;
 
-  const agents = fs.readdirSync(AGENTS_DIR).filter(d => {
-    return !['heartbeat', 'monitor'].includes(d);
-  });
+  const agents = fs.readdirSync(AGENTS_DIR).filter(d => !isOpsAgent(d));
 
   for (const agent of agents) {
     const sessDir = path.join(AGENTS_DIR, agent, 'sessions');
@@ -154,25 +164,22 @@ For each problem→solution trajectory found, extract:
 - steps: array of {action, result} showing the resolution path (max 5 steps)
 - solution: the final solution or approach that worked
 - outcome: "success" if solved, "partial" if partly solved, "failed" if not solved
-- context: project/topic context (e.g. "brainx-v5", "railway deployment", "email automation")
+- context: project/topic context (e.g. "brainx", "railway deployment", "email automation")
 
 Only extract meaningful trajectories (not trivial Q&A or greetings).
 Return a JSON object: { "trajectories": [...] }
 If no meaningful trajectories found, return: { "trajectories": [] }
 Respond ONLY with valid JSON.`;
 
-  const response = await openai.chat.completions.create({
-    model: MODEL,
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: `Agent: ${agent}\n\nConversation:\n${conversation}` }
-    ],
-    temperature: 0.1,
-    response_format: { type: 'json_object' }
+  // Chat/reasoning routed through the OpenClaw gateway agent (brainx-reviewer /
+  // gpt-5.5 OAuth) instead of the OpenAI API. Embeddings below stay on OpenAI.
+  const { callAgentLLM, extractJson } = require(path.join(__dirname, '..', 'lib', 'agent-llm'));
+  const { text } = await callAgentLLM({
+    system: systemPrompt,
+    user: `Agent: ${agent}\n\nConversation:\n${conversation}`,
+    label: 'trajectory',
   });
-
-  const text = response.choices[0].message.content;
-  const parsed = JSON.parse(text);
+  const parsed = extractJson(text);
   return Array.isArray(parsed.trajectories) ? parsed.trajectories : [];
 }
 
@@ -235,7 +242,7 @@ async function main() {
       const sessionKey = `${session.agent}/${session.file}`;
 
       // Skip already processed
-      if (tracking.processed[sessionKey]) {
+      if (shouldSkipProcessed(tracking.processed[sessionKey])) {
         continue;
       }
 
@@ -244,7 +251,12 @@ async function main() {
 
         // Skip very short sessions (< 4 messages = probably no real problem solving)
         if (messages.length < 4) {
-          tracking.processed[sessionKey] = { at: new Date().toISOString(), trajectories: 0 };
+          tracking.processed[sessionKey] = {
+            at: new Date().toISOString(),
+            trajectories: 0,
+            skipped: true,
+            reason: 'short_session'
+          };
           continue;
         }
 
@@ -252,8 +264,11 @@ async function main() {
         const trajectories = await extractTrajectories(conversation, session.agent);
 
         let sessionStored = 0;
+        let sessionHadErrors = false;
+        let validTrajectoryCount = 0;
         for (const traj of trajectories) {
           if (!traj.problem || traj.problem.trim().length < 10) continue;
+          validTrajectoryCount++;
 
           try {
             const embeddingText = `${traj.problem} ${traj.solution || ''}`;
@@ -262,21 +277,36 @@ async function main() {
             sessionStored++;
             result.stored++;
           } catch (err) {
+            sessionHadErrors = true;
             result.errors.push({ session: sessionKey, problem: traj.problem?.substring(0, 60), error: err.message });
           }
         }
 
         result.trajectories_found += trajectories.length;
         result.sessions_processed++;
+        const noValidTrajectories = validTrajectoryCount === 0 && !sessionHadErrors;
         tracking.processed[sessionKey] = {
           at: new Date().toISOString(),
-          trajectories: sessionStored
+          trajectories: sessionStored,
+          failed: sessionHadErrors,
+          skipped: noValidTrajectories,
+          reason: noValidTrajectories ? 'no_valid_trajectories' : undefined,
+          errorCount: sessionHadErrors
+            ? result.errors.filter(e => e.session === sessionKey).length
+            : 0
         };
 
         // Delay between sessions
         await sleep(BATCH_DELAY_MS);
       } catch (err) {
         result.errors.push({ session: sessionKey, error: err.message });
+        tracking.processed[sessionKey] = {
+          at: new Date().toISOString(),
+          trajectories: 0,
+          failed: true,
+          reason: 'session_error',
+          errorCount: 1
+        };
       }
     }
 
@@ -287,6 +317,9 @@ async function main() {
 
   console.log(JSON.stringify(result));
   await pool.end();
+  if (result.errors.length > 0) {
+    process.exitCode = 1;
+  }
 }
 
 main().catch(err => {

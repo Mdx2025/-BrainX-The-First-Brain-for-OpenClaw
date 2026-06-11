@@ -1,12 +1,26 @@
 #!/usr/bin/env node
 
-require('dotenv/config');
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
 const fs = require('fs');
-const path = require('path');
 const crypto = require('crypto');
 
 const rag = require('../lib/openai-rag');
+
+function printUsage() {
+  console.log(`Usage:
+  node scripts/import-workspace-memory-md.js [--dry-run]
+
+Options:
+  --dry-run   Show what would be imported without writing to BrainX
+  -h, --help  Show this help message
+
+Behavior:
+  - If MEMORY_MD is set, imports only that file
+  - Otherwise scans ~/.openclaw/workspace*/MEMORY.md and shared workspace/MEMORY.md
+`);
+}
 
 function sha1(s) {
   return crypto.createHash('sha1').update(s).digest('hex');
@@ -31,6 +45,11 @@ function splitIntoChunks(text, maxChars = 5000) {
 }
 
 async function main() {
+  if (process.argv.includes('--help') || process.argv.includes('-h')) {
+    printUsage();
+    return;
+  }
+
   const dryRun = process.argv.includes('--dry-run');
 
   // Resolve MEMORY.md: env override > all workspace MEMORY.md files

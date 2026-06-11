@@ -17,7 +17,7 @@
 #
 # ─────────────────────────────────────────────────────────────
 # Original description (preserved for reference):
-# BrainX V5 Smart Inject Hook — v2 (Topic Files + Compact Index)
+# BrainX Smart Inject Hook — v2 (Topic Files + Compact Index)
 # Runs on agent:bootstrap event
 #
 # Generates:
@@ -25,7 +25,7 @@
 #   brainx-topics/facts.md     — Full infrastructure facts
 #   brainx-topics/decisions.md — Recent decisions
 #   brainx-topics/gotchas.md   — Known traps and errors
-#   brainx-topics/learnings.md — Learnings and insights
+#   brainx-topics/learnings.md — Learnings and insights (only if BRAINX_BOOTSTRAP_INCLUDE_LEARNINGS=true)
 #   brainx-topics/team.md      — High-importance cross-agent memories
 #   brainx-topics/own.md       — Agent-specific memories (full)
 #
@@ -38,7 +38,7 @@ AGENT_NAME="${OPENCLAW_AGENT:-unknown}"
 
 OUTPUT_FILE="$WORKSPACE_DIR/BRAINX_CONTEXT.md"
 TOPICS_DIR="$WORKSPACE_DIR/brainx-topics"
-BRAINX_CLI="$BRAINX_DIR/brainx-v5"
+BRAINX_CLI="$BRAINX_DIR/brainx"
 TIMESTAMP="$(date -u '+%Y-%m-%d %H:%M:%S UTC')"
 
 # Load environment
@@ -49,7 +49,7 @@ fi
 # If brainx CLI not available, write fallback and exit cleanly
 if [ ! -f "$BRAINX_CLI" ] && [ ! -L "$BRAINX_CLI" ]; then
     cat > "$OUTPUT_FILE" << EOF
-# 🧠 BrainX V5 Context (Auto-Injected)
+# 🧠 BrainX Context (Auto-Injected)
 
 **Agent:** $AGENT_NAME | **Updated:** $TIMESTAMP
 
@@ -145,9 +145,11 @@ GOTCHA_COUNT=$(generate_topic "⚠️ Gotchas & Traps" \
     "gotchas traps errors bugs workarounds warnings" \
     "$TOPICS_DIR/gotchas.md" 8 5)
 
-LEARNING_COUNT=$(generate_topic "💡 Learnings & Insights" \
-    "learnings discoveries insights knowledge" \
-    "$TOPICS_DIR/learnings.md" 8 5)
+if [ "${BRAINX_BOOTSTRAP_INCLUDE_LEARNINGS:-false}" = "true" ]; then
+    LEARNING_COUNT=$(generate_topic "💡 Learnings & Insights" \
+        "learnings discoveries insights knowledge" \
+        "$TOPICS_DIR/learnings.md" 8 5)
+fi
 
 TEAM_COUNT=$(generate_topic "🔥 Team Knowledge (High Importance)" \
     "critical decisions infrastructure team configuration" \
@@ -230,7 +232,7 @@ if [ "$OWN_COUNT" -gt 0 ] 2>/dev/null; then
 fi
 
 {
-    echo "# 🧠 BrainX V5 Context (Auto-Injected)"
+    echo "# 🧠 BrainX Context (Auto-Injected)"
     echo ""
     echo "**Agent:** $AGENT_NAME | **Updated:** $TIMESTAMP"
     echo "**Mode:** Compact index — lee topic files con \`cat brainx-topics/<file>.md\` cuando necesites detalle"
@@ -253,7 +255,9 @@ fi
     echo "|-------|-------|---------|"
     echo "| 🎯 Decisions | $DECISION_COUNT | \`brainx-topics/decisions.md\` |"
     echo "| ⚠️ Gotchas | $GOTCHA_COUNT | \`brainx-topics/gotchas.md\` |"
-    echo "| 💡 Learnings | $LEARNING_COUNT | \`brainx-topics/learnings.md\` |"
+    if [ "${BRAINX_BOOTSTRAP_INCLUDE_LEARNINGS:-false}" = "true" ]; then
+        echo "| 💡 Learnings | $LEARNING_COUNT | \`brainx-topics/learnings.md\` |"
+    fi
     echo "| 🔥 Team | $TEAM_COUNT | \`brainx-topics/team.md\` |"
     echo "| 📌 Facts | $FACT_COUNT | \`brainx-topics/facts.md\` |"
     echo "| 🤖 Own | $OWN_COUNT | \`brainx-topics/own.md\` |"

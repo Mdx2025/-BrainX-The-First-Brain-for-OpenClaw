@@ -53,7 +53,13 @@ async function main() {
     console.error(`[contradiction-detector] top=${opts.top} threshold=${opts.threshold} dryRun=${opts.dryRun}`);
   }
 
-  // 1. Fetch top hot memories (not already superseded)
+  // 1. Fetch top hot memories + compute high-similarity pairs in a SINGLE query.
+  //    Optimization (2026-04-14): previously fetched memories first, then
+  //    computed N*(N-1)/2 pair similarities and filtered in Node. For top=60
+  //    that is 1,770 pairs all fetched back to Node before filtering.
+  //    New approach uses a CTE + CROSS JOIN with the threshold pushed into
+  //    SQL via pgvector's <=> operator, so PostgreSQL only returns the
+  //    pairs that already exceed the cosine threshold.
   const { rows: memories } = await db.query(`
     SELECT id, type, content, context, tier, importance, access_count, tags, created_at,
            length(content) AS content_len
@@ -75,38 +81,29 @@ async function main() {
     return;
   }
 
-  // 2. Compute pairwise cosine similarity in one efficient query
-  //    Build id list and fetch all similarities at once
-  const ids = memories.map(m => m.id);
-  const idIndex = Object.fromEntries(memories.map((m, i) => [m.id, i]));
+  const memoryById = new Map(memories.map((m) => [m.id, m]));
+  const ids = memories.map((m) => m.id);
 
-  // Generate pairs
-  const pairs = [];
-  for (let i = 0; i < memories.length; i++) {
-    for (let j = i + 1; j < memories.length; j++) {
-      pairs.push([memories[i], memories[j]]);
-    }
-  }
+  // Pull only HIGH-similarity pairs, pushing the threshold into SQL.
+  // a.id < b.id ensures each pair appears once and excludes self-pairs.
+  const totalPairs = (memories.length * (memories.length - 1)) / 2;
+  const { rows: simRows } = await db.query(`
+    WITH candidates AS (
+      SELECT id, embedding
+      FROM brainx_memories
+      WHERE id = ANY($1::text[])
+    )
+    SELECT a.id AS a_id,
+           b.id AS b_id,
+           1 - (a.embedding <=> b.embedding) AS similarity
+    FROM candidates a
+    JOIN candidates b ON a.id < b.id
+    WHERE 1 - (a.embedding <=> b.embedding) >= $2
+    ORDER BY similarity DESC
+  `, [ids, opts.threshold]);
 
   if (opts.verbose) {
-    console.error(`[contradiction-detector] analyzing ${pairs.length} pairs`);
-  }
-
-  // Batch-fetch similarities for all pairs using a single query with unnest
-  const idPairsA = pairs.map(p => p[0].id);
-  const idPairsB = pairs.map(p => p[1].id);
-
-  const { rows: simRows } = await db.query(`
-    SELECT a_id, b_id, 1 - (ma.embedding <=> mb.embedding) AS similarity
-    FROM unnest($1::text[], $2::text[]) AS t(a_id, b_id)
-    JOIN brainx_memories ma ON ma.id = t.a_id
-    JOIN brainx_memories mb ON mb.id = t.b_id
-  `, [idPairsA, idPairsB]);
-
-  // Index similarities by pair
-  const simMap = new Map();
-  for (const row of simRows) {
-    simMap.set(`${row.a_id}|${row.b_id}`, parseFloat(row.similarity));
+    console.error(`[contradiction-detector] ${simRows.length}/${totalPairs} pairs above threshold ${opts.threshold}`);
   }
 
   // 3. Analyze high-similarity pairs
@@ -114,9 +111,12 @@ async function main() {
   let complementary = 0;
   const details = [];
 
-  for (const [memA, memB] of pairs) {
-    const sim = simMap.get(`${memA.id}|${memB.id}`);
-    if (sim === undefined || sim < opts.threshold) continue;
+  for (const simRow of simRows) {
+    const memA = memoryById.get(simRow.a_id);
+    const memB = memoryById.get(simRow.b_id);
+    if (!memA || !memB) continue;
+    const sim = parseFloat(simRow.similarity);
+    if (sim < opts.threshold) continue;
 
     // Different contexts → complementary, not contradiction
     if (memA.context && memB.context && memA.context !== memB.context) {
@@ -247,7 +247,8 @@ async function main() {
   const result = {
     ok: true,
     dryRun: opts.dryRun,
-    pairsAnalyzed: pairs.length,
+    pairsAnalyzed: totalPairs,
+    pairsAboveThreshold: simRows.length,
     contradictionsFound: supersededIds.length,
     superseded: supersededIds,
     complementary,

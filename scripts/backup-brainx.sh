@@ -6,9 +6,9 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BRAINX_DIR="$(dirname "$SCRIPT_DIR")"
-BACKUP_DIR="${1:-${HOME}/backups/brainx-v5}"
+BACKUP_DIR="${1:-${HOME}/backups/brainx}"
 DATE=$(date +%Y%m%d_%H%M%S)
-BACKUP_NAME="brainx-v5_backup_${DATE}"
+BACKUP_NAME="brainx_backup_${DATE}"
 BACKUP_PATH="$BACKUP_DIR/$BACKUP_NAME"
 
 echo "🧠 BrainX V5 - Sistema de Backup"
@@ -28,8 +28,8 @@ if command -v pg_dump >/dev/null 2>&1; then
     fi
     
     if [ -n "${DATABASE_URL:-}" ]; then
-        pg_dump "$DATABASE_URL" > "$BACKUP_PATH/brainx_v5_database.sql"
-        echo "   ✅ Base de datos respaldada ($(stat -c%s "$BACKUP_PATH/brainx_v5_database.sql" | numfmt --to=iec))"
+        pg_dump "$DATABASE_URL" > "$BACKUP_PATH/brainx_database.sql"
+        echo "   ✅ Base de datos respaldada ($(stat -c%s "$BACKUP_PATH/brainx_database.sql" | numfmt --to=iec))"
     else
         echo "   ⚠️  DATABASE_URL no encontrada, saltando backup de DB"
     fi
@@ -42,7 +42,7 @@ echo "📄 2/6 Respaldando archivos de configuración..."
 mkdir -p "$BACKUP_PATH/config"
 
 # Skill principal
-cp -r "$BRAINX_DIR" "$BACKUP_PATH/config/brainx-v5-skill" 2>/dev/null || true
+cp -r "$BRAINX_DIR" "$BACKUP_PATH/config/brainx-skill" 2>/dev/null || true
 
 # .env de openclaw global
 cp "${HOME}/.openclaw/.env" "$BACKUP_PATH/config/openclaw.env" 2>/dev/null || true
@@ -62,8 +62,8 @@ else
     echo "   ℹ️  No hay hook handler"
 fi
 
-# 4. Backup de MEMORY.md en workspaces
-echo "📝 4/6 Respaldando MEMORY.md de workspaces..."
+# 4. Backup de docs runtime en workspaces
+echo "📝 4/6 Respaldando docs runtime de workspaces..."
 mkdir -p "$BACKUP_PATH/workspaces"
 for ws in "${HOME}/.openclaw/workspace" "${HOME}/.openclaw/workspace-"*/; do
     [ -d "$ws" ] || continue
@@ -79,7 +79,7 @@ done
 echo "   ✅ $(ls -1 "$BACKUP_PATH/workspaces" 2>/dev/null | wc -l) archivos respaldados"
 
 # 5. Backup de BRAINX_CONTEXT.md
-echo "🔧 5/6 Respaldando context files..."
+echo "🔧 5/6 Respaldando BRAINX_CONTEXT.md de workspaces..."
 mkdir -p "$BACKUP_PATH/context"
 for ws in "${HOME}/.openclaw/workspace" "${HOME}/.openclaw/workspace-"*/; do
     [ -d "$ws" ] || continue
@@ -98,25 +98,26 @@ cat > "$BACKUP_PATH/METADATA.json" << EOF
   "created_at": "$(date -u '+%Y-%m-%dT%H:%M:%SZ')",
   "hostname": "$(hostname)",
   "user": "$(whoami)",
-  "brainx_v5": {
-    "database": "brainx_v5",
+  "brainx": {
+    "database": "brainx",
     "tables": [
       "brainx_memories",
       "brainx_learning_details",
       "brainx_trajectories",
       "brainx_context_packs",
       "brainx_session_snapshots",
+      "brainx_event_ledger",
       "brainx_pilot_log"
     ]
   },
   "files": {
-    "database_sql": "brainx_v5_database.sql",
-    "skill_dir": "config/brainx-v5-skill",
+    "database_sql": "brainx_database.sql",
+    "skill_dir": "config/brainx-skill",
     "openclaw_env": "config/openclaw.env",
     "openclaw_config": "config/openclaw.json",
     "hooks": "hooks/",
     "workspaces": "workspaces/",
-    "wrappers": "wrappers/"
+    "context": "context/"
   },
   "restore_instructions": "Ejecutar: ./restore-brainx.sh $BACKUP_NAME"
 }

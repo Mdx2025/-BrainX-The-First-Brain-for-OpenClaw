@@ -7,7 +7,25 @@
 require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
 const db = require('../lib/db');
 
+// RECLASSIFY_EXPAND_20260419: category rules extended to cover the 33 knowledge
+// domains in use (finanzas, marketing, legal, clientes, propuestas, etc.). Rules
+// are evaluated in order; most specific first so broader ones don't swallow
+// domain matches. Keep regex conservative — false positives pollute category
+// stats, so prefer domain-specific nouns/verbs rather than generic words.
 const CATEGORY_RULES = [
+  // --- Domain rules (specific) ---
+  { match: /\b(factura|facturaci[oó]n|invoice|billing|pago|cobro|cobranza|ingreso|egreso|gasto|cuenta\s*bancaria|banco|transferencia|stripe|paypal|mercadopago|wise|impuesto|iva|comisi[oó]n|presupuesto|budget|payment|tax|n[oó]mina|payroll|saldo|deuda|cr[eé]dito|d[eé]bito|finanzas|financiero|trading|inversi[oó]n|investment|mercado|stock|crypto|cripto|bitcoin)\b/i, category: 'financial', typeHint: 'fact' },
+  { match: /\b(cliente|customer|prospect|lead|propuesta|cotizaci[oó]n|oferta|venta|sales|deal|negociaci[oó]n|pipeline|crm|onboarding|renovaci[oó]n|upsell|downsell|churn|partnership|partner|alianza|vendor|proveedor)\b/i, category: 'client', typeHint: 'fact' },
+  { match: /\b(seo|sem|marketing|campa[nñ]a|campaign|keyword|ranking|backlink|analytics\s*(de|para)|conversi[oó]n|funnel|landing\s*page|lead\s*magnet|brand|branding|marca|logo|identidad|email\s*marketing|newsletter|audiencia|target|buyer\s*persona|tr[aá]fico|impresiones|ctr|cpa|cpc|roi|roas|influencer)\b/i, category: 'marketing', typeHint: 'fact' },
+  { match: /\b(figma|dise[nñ]o|design|ui|ux|mockup|prototipo|prototype|wireframe|sistema\s*de\s*dise[nñ]o|design\s*system|usabilidad|usability|user\s*flow|journey|component|componente|tipograf[ií]a|palette|paleta|color\s*scheme)\b/i, category: 'design', typeHint: 'fact' },
+  { match: /\b(contrato|contract|acuerdo|nda|t[eé]rminos|cl[aá]usula|legal|ley|law|normativa|compliance|regulaci[oó]n|propiedad\s*intelectual|copyright|trademark|privacidad|privacy|gdpr|licencia|license)\b/i, category: 'legal', typeHint: 'fact' },
+  { match: /\b(correo|email|mail|inbox|bandeja|respuesta\s*(a|del?)\s*correo|reply|newsletter|boletin|suscripci[oó]n|suscriptor|llamada|call\s*(con|de|para)|reuni[oó]n|meeting|zoom|google\s*meet|agenda|calendario|cita|appointment)\b/i, category: 'communication', typeHint: 'fact' },
+  { match: /\b(producto|product\s*(road|feat|launch)|roadmap|feature(?:s|\s)|release\s*(plan|note)|mvp|beta|stakeholder|backlog)\b/i, category: 'product', typeHint: 'fact' },
+  { match: /\b(workflow|kanban|trello|notion|asana|automatizaci[oó]n|automation|plantilla|template|checklist|sop|procedimiento|contrataci[oó]n|hiring|empleado|empleada|freelancer|equipo\s*(de|para)|manager|l[ií]der|delegaci[oó]n|delivery|deadline|vencimiento|entrega)\b/i, category: 'operations', typeHint: 'fact' },
+  { match: /\b(contenido|content|post|art[ií]culo|article|blog|video|reel|historia|story|shorts|caption|hook|gui[oó]n|copy|copywriting|publicaci[oó]n|draft|borrador|thread|tweet|tuit|instagram|twitter|tiktok|linkedin|youtube|pinterest|medium|substack|redes\s*sociales|social\s*media|feed|perfil|bio)\b/i, category: 'content', typeHint: 'fact' },
+  { match: /\b(research|investigaci[oó]n|an[aá]lisis|analysis|estudio|estudios|paper|informe|reporte|datos|data|estad[ií]stica|statistic|survey|encuesta|m[eé]trica|kpi|dashboard)\b/i, category: 'research', typeHint: 'fact' },
+  { match: /\b(deploy|deployment|rollback|migration|hotfix|release|ci\/cd|railway|vercel|systemd|docker|kubernetes|pipeline|build\s*(failed|ok)|integration|production|prod)\b/i, category: 'infrastructure', typeHint: 'fact' },
+  // --- Generic rules (fallback, original set) ---
   { match: /error|fail|crash|bug|broke|fix|wrong|issue/i, category: 'error', typeHint: 'learning' },
   { match: /learn|realiz|discover|found out|turns out|actually/i, category: 'learning', typeHint: 'learning' },
   { match: /decid|chose|decision|switch|migrat|adopt|use.*instead/i, category: null, typeHint: 'decision' },

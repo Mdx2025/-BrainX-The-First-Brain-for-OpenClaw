@@ -60,12 +60,22 @@ function findRecentMemoryFiles(hoursAgo) {
 }
 
 // ---------------------------------------------------------------------------
-// Extract workspace name from path
+// Extract agent name from a workspace memory file path.
+// AGENT_RESOLUTION_20260503: previously fell back to the literal string
+// 'unknown' when the path did not match `workspace-<name>/...`, which silently
+// inserted ~26 rows/day with agent='unknown' (mainly from
+// `~/.openclaw/workspace/memory/...`, the main jarvis workspace, which has no
+// `-<name>` suffix). Now returns null when unresolvable so the caller can
+// skip + log instead of polluting the corpus.
 // ---------------------------------------------------------------------------
 function extractWorkspace(filePath) {
   // e.g. ~/.openclaw/workspace-coder/memory/2026-02-25.md → coder
-  const match = filePath.match(/workspace-([^/]+)/);
-  return match ? match[1] : 'unknown';
+  const suffixed = filePath.match(/workspace-([^/]+)/);
+  if (suffixed) return suffixed[1];
+  // Main (suffix-less) workspace lives at `~/.openclaw/workspace/...`
+  // and is owned by the `main` agent.
+  if (/\/\.openclaw\/workspace\//.test(filePath)) return 'main';
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -108,9 +118,9 @@ function classifyBlock(text) {
     return { type: 'decision', importance: 7 };
   }
 
-  // Error / fix / bug → learning
+  // Error / fix / bug → note (changelog/error context until verified elsewhere)
   if (/(?:error|fix|bug|fallo|falló|crash|broke|roto|no funciona|se cayó|exception|la solución|se resolvió|corregido|arreglado|el problema era)/i.test(lower)) {
-    return { type: 'learning', importance: 7, category: 'error' };
+    return { type: 'note', importance: 5, category: 'error' };
   }
 
   // Gotcha / cuidado
@@ -142,6 +152,14 @@ function getRag() {
 async function storeToBrainx(memory, dryRun) {
   if (dryRun) return { ok: true, dryRun: true };
 
+  // AGENT_RESOLUTION_20260503: refuse to write rows without a resolved owner.
+  // Prior code silently inserted with agent=null (or 'unknown' from
+  // extractWorkspace fallback), polluting recall across all agents. The
+  // upstream caller is responsible for resolving the workspace; if it could
+  // not, skip the write and surface a structured error.
+  if (!memory.agent || typeof memory.agent !== 'string' || !memory.agent.trim()) {
+    return { ok: false, error: 'agent_unresolved' };
+  }
   try {
     const rag = getRag();
     const result = await rag.storeMemory({
@@ -151,7 +169,7 @@ async function storeToBrainx(memory, dryRun) {
       context: memory.context || null,
       tier: memory.importance >= 7 ? 'hot' : 'warm',
       importance: memory.importance ?? 5,
-      agent: memory.agent || null,
+      agent: memory.agent,
       category: memory.category || null,
       tags: memory.tags || [],
     });
@@ -216,6 +234,12 @@ async function main() {
 
   for (const filePath of files) {
     const workspace = extractWorkspace(filePath);
+    if (!workspace) {
+      // AGENT_RESOLUTION_20260503: unresolved workspace path → don't fabricate
+      // an owner. Surface in summary so the cron run is loud about skips.
+      summary.errors.push({ filePath, reason: 'workspace_unresolved' });
+      continue;
+    }
     const content = fs.readFileSync(filePath, 'utf8');
     const blocks = splitIntoBlocks(content);
 

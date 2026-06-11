@@ -19,6 +19,7 @@ require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') }
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { isOpsAgent } = require('../lib/ops-agents');
 
 const WORKSPACE_BASE = path.join(process.env.HOME || '/home/clawd', '.openclaw');
 const BRAINX_DIR = path.join(__dirname, '..');
@@ -59,6 +60,8 @@ function findRecentMemoryFiles(hoursAgo) {
     const agentName = entry.name === 'workspace'
       ? 'main'
       : entry.name.replace('workspace-', '');
+
+    if (isOpsAgent(agentName)) continue;
 
     const mdFiles = fs.readdirSync(memDir).filter(f => f.endsWith('.md'));
     for (const f of mdFiles) {
@@ -156,13 +159,13 @@ function classifyEntry(text, heading) {
   // Classification rules
   const RULES = [
     // Fixes and solutions
-    { match: /(?:fix(?:ed|eado)?|corregid[oa]|arreglad[oa]|solución|soluciona|the fix|se resolvió|→.*(?:fix|arregl|correg))/i, type: 'learning', importance: 7, category: 'error' },
+    { match: /(?:fix(?:ed|eado)?|corregid[oa]|arreglad[oa]|solución|soluciona|the fix|se resolvió|→.*(?:fix|arregl|correg))/i, type: 'note', importance: 5, category: 'error' },
 
     // Decisions
     { match: /(?:decid|decisión|decidimos|elegimos|se.*(?:cambió|migró|movió)|vamos a usar|switched|reemplaz|en vez de)/i, type: 'decision', importance: 7 },
 
     // Bugs and errors found
-    { match: /(?:bug|error|fallo|falló|roto|crash|broke|no funciona|causa|root cause|issue|problema)/i, type: 'learning', importance: 6, category: 'error' },
+    { match: /(?:bug|error|fallo|falló|roto|crash|broke|no funciona|causa|root cause|issue|problema)/i, type: 'note', importance: 4, category: 'error' },
 
     // Gotchas and warnings
     { match: /(?:gotcha|cuidado|ojo con|nunca|no usar|avoid|prohibido|trap|caveat|watch out)/i, type: 'gotcha', importance: 7, category: 'correction' },
@@ -171,7 +174,7 @@ function classifyEntry(text, heading) {
     { match: /(?:config|configuración|setup|instalé|installed|deploy|habilitado|activado|desactivado|variable|env|api.?key|token|renovad[oa])/i, type: 'note', importance: 6, category: 'infrastructure' },
 
     // Learnings
-    { match: /(?:aprendí|descubrí|resulta que|turns out|actually|en realidad|lo que pasa|the issue was)/i, type: 'learning', importance: 6, category: 'learning' },
+    { match: /(?:aprendí|descubrí|resulta que|turns out|actually|en realidad|lo que pasa|the issue was)/i, type: 'learning', importance: 5, category: 'learning' },
 
     // Architecture / pipeline
     { match: /(?:arquitectura|architecture|pipeline|workflow|schema|migración|migration|restructura)/i, type: 'decision', importance: 6 },
