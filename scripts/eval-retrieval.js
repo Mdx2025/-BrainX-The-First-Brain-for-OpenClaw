@@ -72,6 +72,19 @@ async function main() {
       }
     }
 
+    // aislamiento multi-proyecto: filas devueltas que NO deben pertenecer a otro
+    // proyecto (52 agentes multi-proyecto — traer el proyecto equivocado es el
+    // drift cross-proyecto que ya causó incidentes reales).
+    let forbiddenRows = [];
+    if (Array.isArray(c.forbidden_any_substring) && c.forbidden_any_substring.length && rows.length) {
+      forbiddenRows = rows
+        .filter((r) => {
+          const hay = `${r.content || ''}\n${r.context || ''}`.toLowerCase();
+          return c.forbidden_any_substring.some((f) => hay.includes(f.toLowerCase()));
+        })
+        .map((r) => r.id);
+    }
+
     // leak check: bajo maxSensitivity=normal ninguna fila puede ser sensitive/restricted.
     // search() puede no devolver la columna — reconsultamos por id (fuente de verdad).
     let leakRows = [];
@@ -97,6 +110,7 @@ async function main() {
       hit_at_k: rank != null,
       rr: rank ? 1 / rank : 0,
       leak_rows: leakRows.map((r) => r.id),
+      forbidden_rows: forbiddenRows,
       latency_ms: latencyMs,
       error,
     });
@@ -114,6 +128,7 @@ async function main() {
     mrr: scored.length ? Math.round((scored.reduce((s, r) => s + r.rr, 0) / scored.length) * 1000) / 1000 : 0,
     leak_cases: leakChecked.length,
     leaked_rows: leaks,
+    isolation_violations: results.reduce((s, r) => s + (r.forbidden_rows?.length || 0), 0),
     latency_p50_ms: quantile(sortedLat, 0.5),
     latency_p95_ms: quantile(sortedLat, 0.95),
     misses: scored.filter((r) => !r.hit_at_k).map((r) => r.name),
@@ -127,9 +142,10 @@ async function main() {
       const tag = r.leak_check
         ? (r.leak_rows.length ? `LEAK(${r.leak_rows.length})` : 'no-leak')
         : (r.rank ? `hit@${r.rank}` : 'MISS');
-      console.log(`  ${tag.padEnd(9)} ${String(r.latency_ms).padStart(5)}ms  ${r.name}${r.error ? '  ERR:' + r.error : ''}`);
+      const iso = r.forbidden_rows?.length ? `  ISO-VIOL(${r.forbidden_rows.length})` : '';
+      console.log(`  ${tag.padEnd(9)} ${String(r.latency_ms).padStart(5)}ms  ${r.name}${iso}${r.error ? '  ERR:' + r.error : ''}`);
     }
-    console.log(`\n  hit@1=${summary.hit_at_1}%  hit@k=${summary.hit_at_k}%  MRR=${summary.mrr}  leaks=${summary.leaked_rows}  p50=${summary.latency_p50_ms}ms p95=${summary.latency_p95_ms}ms`);
+    console.log(`\n  hit@1=${summary.hit_at_1}%  hit@k=${summary.hit_at_k}%  MRR=${summary.mrr}  leaks=${summary.leaked_rows}  iso-viol=${summary.isolation_violations}  p50=${summary.latency_p50_ms}ms p95=${summary.latency_p95_ms}ms`);
     if (summary.misses.length) console.log(`  misses: ${summary.misses.join(' | ')}`);
   }
 

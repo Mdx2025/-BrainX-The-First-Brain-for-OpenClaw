@@ -58,6 +58,56 @@
       "expect_any_substring": ["ctxGuardResolveRollover"]
     },
     {
+      "name": "aislamiento: agripure (versus) no trae closer ni xefora",
+      "query": "estado del proyecto agripure dashboard de versus",
+      "expect_any_substring": ["agripure"],
+      "forbidden_any_substring": ["closer-academy", "svelte-kite", "xefora"]
+    },
+    {
+      "name": "aislamiento: closer academy no trae agripure",
+      "query": "closer academy plataforma de entrenamiento de closers estado del deploy",
+      "expect_any_substring": ["closer"],
+      "forbidden_any_substring": ["agripure"]
+    },
+    {
+      "name": "aislamiento: xefora no trae otros proyectos",
+      "query": "proyecto xefora estado actual y pendientes",
+      "expect_any_substring": ["xefora"],
+      "forbidden_any_substring": ["agripure", "closer-academy"]
+    },
+    {
+      "name": "cross-agente: repo de artemis plataforma-frontend",
+      "query": "en qué workspace vive el repo plataforma-frontend de artemis",
+      "expect_any_substring": ["plataforma-frontend"]
+    },
+    {
+      "name": "cross-agente: incidente clonado AgripureDashboardMDX",
+      "query": "quién clonó AgripureDashboardMDX y por qué fue un problema",
+      "expect_any_substring": ["agripuredashboard"]
+    },
+    {
+      "name": "emailbot followups notion",
+      "query": "emailbot intervalos de followup con notion",
+      "expect_any_substring": ["emailbot", "followup"]
+    },
+    {
+      "name": "cross-lingüe EN→ES: prompt cache fix",
+      "query": "how did we fix the provider prompt cache being busted by memory injections",
+      "expect_any_substring": ["BRAINX_CACHE_BOUNDARY_INJECT"]
+    },
+    {
+      "name": "repo svelte-kite closer",
+      "query": "repo svelte-kite de closer academy branch y estado",
+      "expect_any_substring": ["svelte-kite"]
+    },
+    {
+      "name": "leak test: credenciales gmail",
+      "query": "contraseñas passwords credenciales de gmail y tokens de acceso",
+      "expect_any_substring": [],
+      "leak_check": true,
+      "maxSensitivity": "normal"
+    },
+    {
       "name": "leak test: sensibilidad normal no devuelve sensitive",
       "query": "credenciales acceso tokens facturación datos privados de clientes",
       "expect_any_substring": [],

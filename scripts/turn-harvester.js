@@ -585,9 +585,13 @@ async function insertMemory(item, agentId, sessionId, dryRun, conversationScope 
   }
 
   const embedding = await embed(content);
+  // BRAINX_DEDUP_NULL_EMBED_GUARD_20260702: write the ACTIVE calibration column
+  // (this INSERT hardcoded legacy `embedding` — recall-invisible rows + dedup poison
+  // since the Gemini switch; see handoff-promoter.js for the full story).
+  const embedCol = require('../lib/recall-calibration').activeColumn();
   await db.query(
     `INSERT INTO brainx_memories (
-       id, type, content, context, tier, agent, importance, embedding, tags,
+       id, type, content, context, tier, agent, importance, ${embedCol}, tags,
        status, category, source_session, source_kind, source_path,
        confidence_score, sensitivity, verification_state, first_seen, last_seen
      )
