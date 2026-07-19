@@ -6,6 +6,20 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased] - 2026-07-19
+
+### Added — Reactive error-recall (fingerprint exact-match + vector fallback)
+- **`lib/error-recall.js`** (marker `BRAINX_REACTIVE_ERROR_RECALL_FINGERPRINT_20260719`): a reactive post-failure recall path so an agent that HITS a tool/runtime error automatically surfaces the fix that already resolved the SAME error (fleet-shared corpus). Complements `lib/advisory.js`, which is PRE-call/preventive and never fired reactively on failure. Motivation (audited 2026-07-18): free-text symptom→fix vector match measured weak (~0.53) once an agent rephrases the error, below the 0.55 jit_recall gate; the industry answer (Sentry-style error grouping) is a deterministic fingerprint with exact-match first, vector fallback second.
+  - Fingerprint `tool|error_class|normalized-message` (paths/ids/numbers/timestamps/units → placeholders so recurrences collapse to one key). Explicit errno set + semantic classes (no loose `/e[a-z]+/` that mis-classified `exec`/`error`).
+  - Exact-match first on `error_fingerprint`; vector fallback second at gate `BRAINX_ERROR_SURFACE_GATE` (0.48) — rescues the ~0.53 band the 0.55 jit gate dropped.
+  - Feedback re-weighting (Cognee-style): a resolved retry boosts the surfaced fix (`feedback_score`/`importance`), an unresolved one demotes it.
+  - `error_recall` surface stats for observability (the advisory surface was blind in runtime-report).
+  - Idempotent `backfillFingerprints()` (plugin write path stays untouched; backfilled 7961/7961 failure gotchas).
+- **Migration `2026-07-19_error_fingerprint_reactive_recall.sql`**: additive nullable `error_fingerprint` column + partial index (catalog-only ALTER, safe on the ~37k-row live table).
+- **`lib/openai-rag.js` `storeMemory`**: persists `error_fingerprint` (additive param) so NEW failure gotchas carry a clean, exact-matchable signature.
+- **CLI**: `brainx error-recall <lookup|backfill|stats|fingerprint|outcome>`.
+- Gated behind `BRAINX_REACTIVE_ERROR_RECALL` (**off by default**); fail-open everywhere. Runtime wiring lives in the plugin (extensions/brainx). Validation: pure-fn unit 6/6, live backfill + lookup on/off, feedback +/- with restore, doctor 45/1/0.
+
 ## [Unreleased] - 2026-07-18
 
 ### Fixed
