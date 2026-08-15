@@ -9,3 +9,13 @@ cron/health.log
 package-lock.json
 pnpm-lock.yaml
 ISSUES_FIX_PLAN.md
+
+# OPENCLAW_BRAINX_REPO_HYGIENE_20260702: never track env files or edit-time backups.
+# .env real y sus backups llevan API keys — los .env.bak-* viven en
+# ~/.openclaw/backups/env/skills-brainx/ fuera del repo.
+.env*
+!.env.example
+*.bak
+*.bak-*
+logs/
+effectiveness/

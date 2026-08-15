@@ -1,21 +1,12 @@
--- BrainX V5 Migration: extend source_kind constraint for knowledge base provenance
+-- BrainX migration: allow usage_verified as a durable primary source kind.
+--
+-- The runtime and CLI trust gates have treated usage_verified as PRIMARY since
+-- BRAINX_USAGE_VERIFIED_RECALL_LOOP_20260613. This migration aligns the live
+-- brainx_memories constraint so the daily usage-verified-promoter can persist
+-- those promotions.
 
 ALTER TABLE brainx_memories
-  ADD COLUMN IF NOT EXISTS source_kind TEXT;
-
-DO $$
-BEGIN
-  IF EXISTS (
-    SELECT 1
-    FROM pg_constraint
-    WHERE conname = 'brainx_memories_source_kind_check'
-  ) THEN
-    ALTER TABLE brainx_memories
-      DROP CONSTRAINT brainx_memories_source_kind_check;
-  END IF;
-EXCEPTION WHEN undefined_object THEN
-  NULL;
-END $$;
+  DROP CONSTRAINT IF EXISTS brainx_memories_source_kind_check;
 
 ALTER TABLE brainx_memories
   ADD CONSTRAINT brainx_memories_source_kind_check

@@ -80,6 +80,7 @@ BEGIN
         'summary_derived',
         'consolidated',
         'auto_distilled',
+        'usage_verified',
         'knowledge_canonical',
         'knowledge_staging',
         'knowledge_generated'

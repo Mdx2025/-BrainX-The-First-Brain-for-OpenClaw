@@ -24,7 +24,12 @@ case "$CMD" in
   health)
     node "$ROOT/tests/smoke.js"
     ;;
-  add|fact|facts|feature|features|search|inject|feedback|resolve|promote-candidates|lifecycle-run|metrics|runtime-report|doctor|fix|--fix|advisory|advisory-feedback|eidos|wiki)
+  status)
+    # BRAINX_UNIFIED_STATUS_20260621: one-glance dashboard (gateway + DB + surfaces;
+    # --full adds doctor + dist smoke + rotation health). See scripts/brainx-status.mjs.
+    node "$ROOT/scripts/brainx-status.mjs" "$@"
+    ;;
+  add|fact|facts|feature|features|search|inject|feedback|skill-feedback|skill-stats|cost-report|resolve|promote-candidates|lifecycle-run|metrics|runtime-report|agent-metrics|router-quality|recall-health|explain|prompt-budget|doctor|fix|--fix|advisory|advisory-feedback|eidos|error-recall|wiki)
     node "$ROOT/lib/cli.js" "$CMD" "$@"
     ;;
   distill)

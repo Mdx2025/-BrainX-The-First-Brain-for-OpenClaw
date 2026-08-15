@@ -1,0 +1,125 @@
+{
+  "_comment": "BRAINX_RETRIEVAL_EVAL_20260702 — ground-truth eval de retrieval. Cada caso: query en lenguaje natural (como preguntaría un agente) + anchors que DEBEN aparecer en top-k (substring en content/context de la fila devuelta). Los anchors se verificaron contra el corpus el 2026-07-02 (todos existen en filas vivas). A diferencia del juez offline viejo (query=content de la propia memoria, auto-etiquetado e idealizado), acá la query NO es el contenido — es una pregunta operativa real.",
+  "defaults": { "k": 5, "maxSensitivity": "normal" },
+  "cases": [
+    {
+      "name": "prompt-cache boundary fix",
+      "query": "las inyecciones de memoria rompen el prompt cache del provider, cómo se arregló",
+      "expect_any_substring": ["BRAINX_CACHE_BOUNDARY_INJECT"]
+    },
+    {
+      "name": "dedup cross scope anti-regeneración",
+      "query": "memorias duplicadas regeneradas que escapan la ventana de dedup de 30 días",
+      "expect_any_substring": ["BRAINX_DEDUP_CROSS_SCOPE"]
+    },
+    {
+      "name": "entity signal retrieval",
+      "query": "señal de entidades tipada para recall además de semántica y léxica",
+      "expect_any_substring": ["BRAINX_ENTITY_SIGNAL_20260701"]
+    },
+    {
+      "name": "capture tier policy",
+      "query": "memorias agent_inference de baja importancia deberían nacer en tier cold",
+      "expect_any_substring": ["BRAINX_CAPTURE_TIER_POLICY_20260630"]
+    },
+    {
+      "name": "scope steer failsafe drift",
+      "query": "el agente siguió trabajando en el proyecto descartado por frecuencia de paths en working state",
+      "expect_any_substring": ["BRAINX_FAILSAFE_SCOPE_STEER"]
+    },
+    {
+      "name": "costo reviewers gemini free tier",
+      "query": "el loop de review de brainx gastaba mucho por reasoning tokens de gpt-5-nano",
+      "expect_any_substring": ["BRAINX_REVIEWER_THINKING_COST_GUARD", "gemini-2.5-flash-lite"]
+    },
+    {
+      "name": "project state card client-portal",
+      "query": "tarjeta de estado por proyecto canónico para que el recall tenga el estado actual",
+      "expect_any_substring": ["PROJECT_STATE_CARD_20260701", "m_projstate_"]
+    },
+    {
+      "name": "recall reranker uptake",
+      "query": "rerank del recall según qué tipos de memoria se usan de verdad",
+      "expect_any_substring": ["BRAINX_RECALL_RERANK"]
+    },
+    {
+      "name": "embeddings gemini switch",
+      "query": "cambio del provider de embeddings de openai a gemini con columna nueva",
+      "expect_any_substring": ["gemini-embedding-001", "embedding_v2"]
+    },
+    {
+      "name": "post-turn dead letters",
+      "query": "tareas post-turn huérfanas en dead letter que nadie barría",
+      "expect_any_substring": ["BRAINX_POST_TURN_DEADLETTER_SWEEP"]
+    },
+    {
+      "name": "acp rotación context guard",
+      "query": "cómo decide el context guard cuándo rotar una sesión ACP persistente por tokens",
+      "expect_any_substring": ["ctxGuardResolveRollover"]
+    },
+    {
+      "name": "aislamiento: acme (acme) no trae sales-academy ni client-portal",
+      "query": "estado del proyecto acme dashboard de acme",
+      "expect_any_substring": ["acme"],
+      "forbidden_any_substring": ["sales-academy", "web-dashboard", "client-portal"]
+    },
+    {
+      "name": "aislamiento: sales-academy academy no trae acme",
+      "query": "sales academy training platform deploy status",
+      "expect_any_substring": ["sales-academy"],
+      "forbidden_any_substring": ["acme"]
+    },
+    {
+      "name": "aislamiento: client-portal no trae otros proyectos",
+      "query": "proyecto client-portal estado actual y pendientes",
+      "expect_any_substring": ["client-portal"],
+      "forbidden_any_substring": ["acme", "sales-academy"]
+    },
+    {
+      "name": "cross-agente: repo de agent-alpha web-frontend",
+      "query": "en qué workspace vive el repo web-frontend de agent-alpha",
+      "expect_any_substring": ["web-frontend"]
+    },
+    {
+      "name": "cross-agente: incidente clonado AcmeDashboardMDX",
+      "query": "quién clonó AcmeDashboardMDX y por qué fue un problema",
+      "expect_any_substring": ["acmedashboard"]
+    },
+    {
+      "name": "mail-automation followups notion",
+      "query": "mail-automation intervalos de followup con notion",
+      "expect_any_substring": ["mail-automation", "followup"]
+    },
+    {
+      "name": "cross-lingüe EN→ES: prompt cache fix",
+      "query": "how did we fix the provider prompt cache being busted by memory injections",
+      "expect_any_substring": ["BRAINX_CACHE_BOUNDARY_INJECT"]
+    },
+    {
+      "name": "repo web-dashboard sales-academy",
+      "query": "repo web-dashboard de sales-academy academy branch y estado",
+      "expect_any_substring": ["web-dashboard"]
+    },
+    {
+      "name": "leak test: credenciales gmail",
+      "query": "contraseñas passwords credenciales de gmail y tokens de acceso",
+      "expect_any_substring": [],
+      "leak_check": true,
+      "maxSensitivity": "normal"
+    },
+    {
+      "name": "leak test: sensibilidad normal no devuelve sensitive",
+      "query": "credenciales acceso tokens facturación datos privados de clientes",
+      "expect_any_substring": [],
+      "leak_check": true,
+      "maxSensitivity": "normal"
+    },
+    {
+      "name": "leak test: finanzas con maxSensitivity normal",
+      "query": "cuánto dinero facturó la agencia este mes ingresos pagos stripe",
+      "expect_any_substring": [],
+      "leak_check": true,
+      "maxSensitivity": "normal"
+    }
+  ]
+}
