@@ -22,6 +22,7 @@ require('dotenv').config({
 
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const crypto = require('crypto');
 const db = require('../lib/db');
 const { embed } = require('../lib/embedding-client');
@@ -38,7 +39,7 @@ const TURN_HARVEST_GATE = /^(1|true|on|yes)$/i.test(process.env.BRAINX_TURN_HARV
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
-const HOME = process.env.HOME || '/home/clawd';
+const HOME = process.env.HOME || os.homedir();
 const OPENCLAW_DIR = path.join(HOME, '.openclaw');
 const AGENTS_DIR = path.join(OPENCLAW_DIR, 'agents');
 const DATA_DIR = path.join(__dirname, '..', 'data');

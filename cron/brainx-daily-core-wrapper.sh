@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -u
 
-BRAINX_DIR="/home/clawd/.openclaw/skills/brainx"
-MONITOR_SCRIPTS="/home/clawd/.openclaw/workspace/scripts"
+BRAINX_DIR="${BRAINX_DIR:-$HOME/.openclaw/skills/brainx}"
+MONITOR_SCRIPTS="${MONITOR_SCRIPTS:-$HOME/.openclaw/workspace/scripts}"
 RUN_TS="$(date +%Y%m%d-%H%M%S)"
-LOG_FILE="/home/clawd/.openclaw/cron/runs/brainx-daily-core-wrapper-${RUN_TS}.log"
+LOG_FILE="${LOG_FILE:-$HOME/.openclaw/cron/runs/brainx-daily-core-wrapper-${RUN_TS}.log}"
 TODAY_UTC="$(date -u +%w)"
 IS_SUNDAY=0
 IS_MIDWEEK_OR_SUNDAY=0
@@ -132,7 +132,7 @@ CMDS+=("timeout 180 ./brainx fix --only stale-demotion,auto-dedup,runtime-scorin
 # wiki-compile added 2026-04-22: recompiles brainx-vault/ (canonical wiki) so
 # the digest surface in the plugin has fresh content. The compile reads
 # knowledge/*.md + durable memories and is idempotent; previously done ad-hoc,
-# letting the wiki drift 6+ days stale. Output lives at /home/clawd/brainx-vault.
+# letting the wiki drift 6+ days stale. Output lives at $HOME/brainx-vault.
 NAMES+=("wiki-compile")
 CMDS+=("timeout 120 ./brainx wiki compile --json")
 

@@ -11,6 +11,7 @@
 require('dotenv').config({ path: require('path').join(__dirname, '..', '.env'), quiet: true });
 
 const crypto = require('crypto');
+const os = require('os');
 const db = require('../lib/db');
 const { embed } = require('../lib/embedding-client');
 const { OPS_AGENT_PATTERN_SOURCE, EXTRA_OPS_AGENTS } = require('../lib/ops-agents');
@@ -110,8 +111,8 @@ function isDurableArtifactPath(filePath) {
   const p = normalizeText(filePath);
   if (!p || p.length > 220) return false;
   if (p.includes('/node_modules/')) return false;
-  if (p.startsWith('/home/clawd/.openclaw/media/')) return true;
-  if (/^\/home\/clawd\/[^/\s]+\.[a-zA-Z0-9]{2,8}$/.test(p)) return true;
+  if (p.startsWith(path.join(os.homedir(), '.openclaw', 'media'))) return true;
+  if (new RegExp('^' + os.homedir().replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '/[^/\\s]+\\.[a-zA-Z0-9]{2,8}$').test(p)) return true;
   return false;
 }
 
