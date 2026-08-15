@@ -33,7 +33,7 @@
       "expect_any_substring": ["BRAINX_REVIEWER_THINKING_COST_GUARD", "gemini-2.5-flash-lite"]
     },
     {
-      "name": "project state card xefora",
+      "name": "project state card client-portal",
       "query": "tarjeta de estado por proyecto canónico para que el recall tenga el estado actual",
       "expect_any_substring": ["PROJECT_STATE_CARD_20260701", "m_projstate_"]
     },
@@ -58,37 +58,37 @@
       "expect_any_substring": ["ctxGuardResolveRollover"]
     },
     {
-      "name": "aislamiento: agripure (versus) no trae closer ni xefora",
-      "query": "estado del proyecto agripure dashboard de versus",
-      "expect_any_substring": ["agripure"],
-      "forbidden_any_substring": ["closer-academy", "svelte-kite", "xefora"]
+      "name": "aislamiento: acme (acme) no trae sales-academy ni client-portal",
+      "query": "estado del proyecto acme dashboard de acme",
+      "expect_any_substring": ["acme"],
+      "forbidden_any_substring": ["sales-academy", "web-dashboard", "client-portal"]
     },
     {
-      "name": "aislamiento: closer academy no trae agripure",
-      "query": "closer academy plataforma de entrenamiento de closers estado del deploy",
-      "expect_any_substring": ["closer"],
-      "forbidden_any_substring": ["agripure"]
+      "name": "aislamiento: sales-academy academy no trae acme",
+      "query": "sales academy training platform deploy status",
+      "expect_any_substring": ["sales-academy"],
+      "forbidden_any_substring": ["acme"]
     },
     {
-      "name": "aislamiento: xefora no trae otros proyectos",
-      "query": "proyecto xefora estado actual y pendientes",
-      "expect_any_substring": ["xefora"],
-      "forbidden_any_substring": ["agripure", "closer-academy"]
+      "name": "aislamiento: client-portal no trae otros proyectos",
+      "query": "proyecto client-portal estado actual y pendientes",
+      "expect_any_substring": ["client-portal"],
+      "forbidden_any_substring": ["acme", "sales-academy"]
     },
     {
-      "name": "cross-agente: repo de artemis plataforma-frontend",
-      "query": "en qué workspace vive el repo plataforma-frontend de artemis",
-      "expect_any_substring": ["plataforma-frontend"]
+      "name": "cross-agente: repo de agent-alpha web-frontend",
+      "query": "en qué workspace vive el repo web-frontend de agent-alpha",
+      "expect_any_substring": ["web-frontend"]
     },
     {
-      "name": "cross-agente: incidente clonado AgripureDashboardMDX",
-      "query": "quién clonó AgripureDashboardMDX y por qué fue un problema",
-      "expect_any_substring": ["agripuredashboard"]
+      "name": "cross-agente: incidente clonado AcmeDashboardMDX",
+      "query": "quién clonó AcmeDashboardMDX y por qué fue un problema",
+      "expect_any_substring": ["acmedashboard"]
     },
     {
-      "name": "emailbot followups notion",
-      "query": "emailbot intervalos de followup con notion",
-      "expect_any_substring": ["emailbot", "followup"]
+      "name": "mail-automation followups notion",
+      "query": "mail-automation intervalos de followup con notion",
+      "expect_any_substring": ["mail-automation", "followup"]
     },
     {
       "name": "cross-lingüe EN→ES: prompt cache fix",
@@ -96,9 +96,9 @@
       "expect_any_substring": ["BRAINX_CACHE_BOUNDARY_INJECT"]
     },
     {
-      "name": "repo svelte-kite closer",
-      "query": "repo svelte-kite de closer academy branch y estado",
-      "expect_any_substring": ["svelte-kite"]
+      "name": "repo web-dashboard sales-academy",
+      "query": "repo web-dashboard de sales-academy academy branch y estado",
+      "expect_any_substring": ["web-dashboard"]
     },
     {
       "name": "leak test: credenciales gmail",

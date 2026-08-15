@@ -283,7 +283,7 @@ function findRecentSessions(hoursAgo, agentFilter, options = {}) {
   }
   // BRAINX_ACP_TRANSCRIPT_HARVEST_20260612 + BRAINX_ACP_HARVEST_FILECAP_RAISE_20260621:
   // The old 12MB per-file cap silently SKIPPED the busiest ACP agents' main sessions
-  // (parker's live session was 12.5MB, blade's 11-22MB) — so blade got only ~5 harvester
+  // (live sessions can reach 10-22MB) — so large sessions got only ~5 harvester
   // memories/24h and the promised "daily distiller backstop" only sweeps 3 sessions/day,
   // never reliably reaching them. Raise to 32MB so active ACP main transcripts are included.
   // Safe within the 600s step timeout: per-run work is still bounded by --max-llm-calls 4 and
@@ -639,10 +639,10 @@ function appendToMemoryFile(workspaceDir, agentId, sessionId, narrative, dryRun)
 // BRAINX_WORKING_STATE_REFRESH_20260613: keep a harvester-owned "freshest detected task"
 // block at the TOP of WORKING_STATE.md, ALWAYS refreshed.
 //
-// Root cause this fixes (cowboy + echo amnesia, 2026-06-13): the previous design wrote
+// Root cause this fixes (agent amnesia, 2026-06-13): the previous design wrote
 // "## Current" only ONCE (when the file was still the default seed) and then skipped
-// forever as "human-managed state". That fossilized the state — cowboy stayed pinned to a
-// Mapitt task from 2026-06-11, echo's custom doc stayed pinned to an Agripure task from
+// forever as "human-managed state". That fossilized the state — one agent stayed pinned to a
+// a client task from 2026-06-11, another agent's custom doc stayed pinned to a different task from
 // another session/agent. When a turn was cut (rotation / native auto-compact / gateway
 // restart / 401) and resumed in a fresh session with a scopeless prompt like "como vas",
 // the agent reconstructed from that fossil and confidently answered about the WRONG project.
